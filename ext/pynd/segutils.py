@@ -123,7 +123,7 @@ def seg_overlay(vol, seg, do_rgb=True, seg_wt=0.5, cmap=None):
 
 if __name__ == '__main__':
 
-    from lab2im.utils.utils import load_volume, save_volume
+    from lab2im.utils import load_volume, save_volume
 
     path_seg = '/home/benjamin/PycharmProjects/hippocampus_seg/models/flair/net_segmentations/ADNI_002_S_0295_Axial_T2-FLAIR_S110475_I238624.isotropic_seg.nii.gz'
     path_overlap = '/home/benjamin/Pictures/images/hippocampus/figure_suppl_materials/flair/PV_countours.nii.gz'

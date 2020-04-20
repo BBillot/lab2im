@@ -1,3 +1,38 @@
+"""This file contains all the utilities used in that project. They are classified in 5 categories:
+1- loading/saving functions:
+    -load_volume
+    -save_volume
+    -get_volume_info
+    -get_list_labels
+    -write_pickle
+    -read_pickle
+    -write_model_summary
+2- reformatting functions
+    -reformat_to_list
+    -reformat_to_n_channels_array
+    -load_array_if_path
+3- path related functions
+    -list_images_in_folder
+    -list_files
+    -list_subfolders
+    -strip_extension
+    -strip_suffix
+4- shape-related functions
+    -get_dims
+    -get_resample_shape
+    -add_axis
+    -get_padding_margin
+5- miscellaneous
+    -print_loop_info
+    -rearrange_label_list
+    -build_training_generator
+    -find_closest_number_divisible_by_m
+    -build_binary_structure
+    -get_std_blurring_mask_for_downsampling
+    -draw_value_from_distribution
+    -create_affine_transformation_matrix
+"""
+
 import os
 import glob
 import math

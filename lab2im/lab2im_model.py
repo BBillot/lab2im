@@ -6,11 +6,11 @@ import keras.layers as KL
 import keras.backend as K
 
 # project imports
-from .utils import utils
+from . import utils
 from .sample_gmm import sample_gmm_conditioned_on_labels
 from .spatial_augmentation import deform_tensor, random_cropping
-from .convert_labels import convert_labels, reset_label_values_to_zero
-from .blur_resample import blur_channel, get_gaussian_1d_kernels, resample_tensor
+from .edit_tensors import convert_labels, reset_label_values_to_zero
+from .edit_tensors import blur_channel, get_gaussian_1d_kernels, resample_tensor
 from .intensity_augmentation import gamma_augmentation, bias_field_augmentation, min_max_normalisation
 
 

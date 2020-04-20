@@ -5,7 +5,8 @@ import keras.layers as KL
 import keras.backend as K
 
 # project imports
-from .utils import utils, edit_volume
+from . import utils
+from . import edit_volumes
 
 # third-party imports
 import ext.neuron.layers as nrn_layers
@@ -110,7 +111,7 @@ def label_map_random_flipping(labels, label_list, n_neutral_labels, aff, n_dims=
                                                   tf.cast(x, dtype='int32')))(y[1]),
                                               tf.cast(y[1], dtype='int32')))([rand_flip, labels])
     # find right left axis
-    ras_axes, _ = edit_volume.get_ras_axes_and_signs(aff, n_dims)
+    ras_axes, _ = edit_volumes.get_ras_axes_and_signs(aff, n_dims)
     flip_axis = [ras_axes[0] + 1]
 
     # right/left flip

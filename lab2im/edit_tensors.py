@@ -1,3 +1,18 @@
+"""This file contains functions to edit keras/tensorflow tensors.
+A lot of them are used in lab2im_model, and we provide them here separately, so they can be re-used easily.
+The functions are classified in three categories:
+1- blurring functions: They contain functions to create blurring tensors and to apply the obtained kernels:
+-blur_tensor
+-get_gaussian_1d_kernels
+-blur_channel
+2- resampling function: function to resample a tensor to a specified resolution.
+-resample_tensor
+3- converting label values; these functions only apply to tensors with a limited set of integers as values (typically
+label map tensors). It contains:
+-convert_labels
+-reset_label_values_to_zero
+"""
+
 # python imports
 import math
 import tensorflow as tf
@@ -6,10 +21,13 @@ import keras.backend as K
 import tensorflow_probability as tfp
 
 # project imports
-from .utils import utils
+from . import utils
 
 # third-party imports
 import ext.neuron.layers as nrn_layers
+
+
+# ------------------------------------------------- blurring functions -------------------------------------------------
 
 
 def blur_tensor(tensor, list_kernels, n_dims=3):
@@ -115,6 +133,8 @@ def blur_channel(tensor, mask, kernels_list, n_dims, blur_background=True):
     return tensor
 
 
+# ------------------------------------------------ resampling functions ------------------------------------------------
+
 def resample_tensor(tensor,
                     resample_shape,
                     interp_method='linear',
@@ -122,7 +142,7 @@ def resample_tensor(tensor,
                     volume_res=None,
                     subsample_interp_method='nearest',
                     n_dims=3):
-    """This function resamples a volume to resample_shape.
+    """This function resamples a volume to resample_shape. It does not apply any pre-filtering.
     A prior downsampling step can be added if subsample_res is specified. In this case, volume_res should also be
     specified, in order to calculate the downsampling ratio.
     :param tensor: tensor
@@ -158,3 +178,24 @@ def resample_tensor(tensor,
         tensor = nrn_layers.Resize(size=resample_shape, interp_method=interp_method)(tensor)
 
     return tensor
+
+
+# ------------------------------------------------ convert label values ------------------------------------------------
+
+def convert_labels(label_map, labels_list):
+    """Change all labels in label_map by the values in labels_list"""
+    return KL.Lambda(lambda x: tf.gather(tf.convert_to_tensor(labels_list, dtype='int32'),
+                                         tf.cast(x, dtype='int32')))(label_map)
+
+
+def reset_label_values_to_zero(label_map, labels_to_reset):
+    """Reset to zero all occurences in label_map of the values contained in labels_to_remove.
+    :param label_map: tensor
+    :param labels_to_reset: list of values to reset to zero
+    """
+    for lab in labels_to_reset:
+        label_map = KL.Lambda(lambda x: tf.where(tf.equal(tf.cast(x, dtype='int32'),
+                                                          tf.cast(tf.convert_to_tensor(lab), dtype='int32')),
+                                                 tf.zeros_like(x, dtype='int32'),
+                                                 tf.cast(x, dtype='int32')))(label_map)
+    return label_map

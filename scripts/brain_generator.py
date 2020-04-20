@@ -12,7 +12,7 @@ import logging
 import numpy as np
 
 # project imports
-from lab2im.utils import utils
+from lab2im import utils
 from lab2im.image_generator import ImageGenerator
 
 # path training labels directory (can also be path of a single image) and result folder

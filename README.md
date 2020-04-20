@@ -25,7 +25,7 @@ The model is implemented in keras with a tensorflow backend, and relies on the
   - [image_generator](lab2im/image_generator.py): contains the class `ImageGenerator` a wrapper around lab2im_model. 
   One can simply generate new images by instantiating an object of this class, and call the method `generate_image()`,
    
-  - [blur_resample](lab2im/blur_resample.py): contains `get_gaussian_1d_kernels` to create tensors holding blurring 
+  - [blur_resample](lab2im/edit_tensors.py): contains `get_gaussian_1d_kernels` to create tensors holding blurring 
   kernels, as well as different functions to blur tensors `blur_tensor`, and resampling function `resample_tensor`,
   
   - [convert_labels](lab2im/convert_labels.py): functions to edit label values within label map tensors.
@@ -41,7 +41,7 @@ The model is implemented in keras with a tensorflow backend, and relies on the
   
   - [utils](lab2im/utils): a directory containing several files for preprocessing volumes and label maps (not tensors!):
   masking, cropping, resampling, smoothing,... These functions are classified by usage (volumes/label maps), and by 
-  input type (numpy arrays/ filepaths).  This directory also contains [utils.py](lab2im/utils/utils.py) with all the 
+  input type (numpy arrays/ filepaths).  This directory also contains [utils.py](lab2im/utils.py) with all the 
   utility functions used in this repository.
   
 - scripts: example of a [script](scripts/brain_generator.py) explaining how to use the the `ImageGenerator` wrapper in

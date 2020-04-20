@@ -3,7 +3,7 @@ import numpy as np
 import numpy.random as npr
 
 # project imports
-from .utils import utils
+from . import utils
 from .lab2im_model import lab2im_model
 
 
