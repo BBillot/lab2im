@@ -20,29 +20,29 @@ The model is implemented in keras with a tensorflow backend, and relies on the
 
 - [lab2im](lab2im): this is the main folder containing the lab2im model and separate functions to manipulate tensors:
 
-  - [lab2im_model](lab2im/lab2im_model.py): contains the generative model `lab2im_model`,
+  - [lab2im_model](lab2im/lab2im_model.py): contains the generative model `lab2im_model`.
   
   - [image_generator](lab2im/image_generator.py): contains the class `ImageGenerator` a wrapper around lab2im_model. 
-  One can simply generate new images by instantiating an object of this class, and call the method `generate_image()`,
-   
-  - [blur_resample](lab2im/edit_tensors.py): contains `get_gaussian_1d_kernels` to create tensors holding blurring 
-  kernels, as well as different functions to blur tensors `blur_tensor`, and resampling function `resample_tensor`,
-  
-  - [convert_labels](lab2im/convert_labels.py): functions to edit label values within label map tensors.
-  
-  - [intensity_augmentation](lab2im/intensity_augmentation.py): functions to perform intensity data augmentation such
-  as `bias_field_augmentation`, `gamma_augmentation`, and `min_max_normalisation`,
+  One can simply generate new images by instantiating an object of this class, and call the method `generate_image()`.
   
   - [sample_gmm](lab2im/sample_gmm.py): contains the function `sample_gmm_conditioned_on_labels` to sample a GMM of 
   defined parameters conditionally on a label map.
   
   - [spatial_augmentations](lab2im/spatial_augmentation.py): contains functions to spatially augment the input label
-  maps, such as `deform_tensor` for linear and elastic deformation, `random_cropping`, or `label_map_random_flipping`
+  maps, such as `deform_tensor` for linear and elastic deformation, `random_cropping`, or `label_map_random_flipping`.
   
-  - [utils](lab2im/utils): a directory containing several files for preprocessing volumes and label maps (not tensors!):
-  masking, cropping, resampling, smoothing,... These functions are classified by usage (volumes/label maps), and by 
-  input type (numpy arrays/ filepaths).  This directory also contains [utils.py](lab2im/utils.py) with all the 
-  utility functions used in this repository.
+  - [intensity_augmentation](lab2im/intensity_augmentation.py): functions to perform intensity data augmentation such
+  as `bias_field_augmentation`, `gamma_augmentation`, and `min_max_normalisation`.
+   
+  - [edit_tensors](lab2im/edit_tensors.py): contains several types of functions to edit keras/tensorflow tensors.
+  It notably has the blurring function `blur_tensor` along with `get_gaussian_1d_kernels`, which enables to create 
+  blurring kernels as tensors. It also has a function `resample_tensor` to resample a tensor to the desired resolution.
+  
+  - [edit_volumes](lab2im/edit_volumes.py): contains numerous functions to preprocess volumes and label maps (given as 
+  numpy array, not tensors!), such as masking, cropping, resampling, smoothing,... These functions are classified by 
+  volume type (volumes/label maps), and by input type (numpy arrays/ paths to volumes). 
+  
+  - [utils](lab2im/utils.py): contains all the utility functions used in this repository.
   
 - scripts: example of a [script](scripts/brain_generator.py) explaining how to use the the `ImageGenerator` wrapper in
 order to easily generate images. This script uses data from the [data_example](data_example) folder.
