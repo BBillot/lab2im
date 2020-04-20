@@ -8,7 +8,7 @@ from scipy.ndimage.morphology import distance_transform_edt
 
 # project imports
 from lab2im.utils import utils, edit_volume
-from lab2im.blur import get_gaussian_1d_kernels, blur_tensor
+from lab2im.blur_resample import get_gaussian_1d_kernels, blur_tensor
 
 
 def correct_label_map(labels, list_incorrect_labels, list_correct_labels, smooth=False):

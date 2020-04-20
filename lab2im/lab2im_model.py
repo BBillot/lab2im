@@ -7,11 +7,10 @@ import keras.backend as K
 
 # project imports
 from lab2im.utils import utils
-from lab2im.resample import resample
-from lab2im.blur import blur_channel, get_gaussian_1d_kernels
 from lab2im.sample_gmm import sample_gmm_conditioned_on_labels
 from lab2im.spatial_augmentation import deform_tensor, random_cropping
 from lab2im.convert_labels import convert_labels, reset_label_values_to_zero
+from lab2im.blur_resample import blur_channel, get_gaussian_1d_kernels, resample_tensor
 from lab2im.intensity_augmentation import gamma_augmentation, bias_field_augmentation, min_max_normalisation
 
 
@@ -123,7 +122,7 @@ def lab2im_model(labels_shape,
         channel = blur_channel(channel, mask, kernels_list, n_dims, blur_background)
 
         # resample channel
-        channel = resample(channel, output_shape, 'linear', n_dims=n_dims)
+        channel = resample_tensor(channel, output_shape, 'linear', n_dims=n_dims)
 
         # apply bias field
         channel = bias_field_augmentation(channel, bias_field_in, n_dims=3)
@@ -142,7 +141,7 @@ def lab2im_model(labels_shape,
     # resample labels at target resolution
     if crop_shape != output_shape:
         labels = KL.Lambda(lambda x: tf.cast(x, dtype='float32'))(labels)
-        labels = resample(labels, output_shape, interp_method='nearest', n_dims=3)
+        labels = resample_tensor(labels, output_shape, interp_method='nearest', n_dims=3)
     # convert labels back to original values and reset unwanted labels to zero
     labels = convert_labels(labels, generation_labels)
     labels_to_reset = [lab for lab in generation_labels if lab not in output_labels]

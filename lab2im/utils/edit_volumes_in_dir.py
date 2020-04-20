@@ -9,7 +9,7 @@ from keras.models import Model
 
 # project imports
 from lab2im.utils import utils, edit_volume
-from lab2im.blur import get_gaussian_1d_kernels, blur_tensor
+from lab2im.blur_resample import get_gaussian_1d_kernels, blur_tensor
 
 
 def mask_images_in_dir(image_dir, result_dir, mask_dir=None, threshold=0.1, dilate=0, erode=0, masking_value=0,

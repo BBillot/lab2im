@@ -4,7 +4,7 @@ import numpy.random as npr
 
 # project imports
 from lab2im.utils import utils
-from lab2im.model import lab2im_model
+from lab2im.lab2im_model import lab2im_model
 
 
 class ImageGenerator:
