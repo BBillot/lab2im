@@ -22,8 +22,10 @@ result_folder = '../data_example/generated_images'
 # general parameters
 n_examples = 5
 batchsize = 1
-crop = None  # crop produced image to this size
-output_divisible_by_n = None  # forces output images to have a shape divisible by 16
+output_shape = 112  # shape of the output images, obtained by randomly cropping the sampled image
+output_divisible_by_n = 16  # forces output images to have a shape divisible by 16
+prior_distribution = 'normal'  # specifies that the parameters in path_prior_means/stds refer to normal distributions
+blur_range = None  # disable randomistaion of the blurring kernels
 
 # materials to load
 path_generation_labels = '../data_example/generation_labels.npy'
@@ -49,9 +51,10 @@ brain_generator = ImageGenerator(labels_dir=paths,
                                  generation_classes=path_generation_classes,
                                  prior_means=path_prior_means,
                                  prior_stds=path_prior_stds,
-                                 prior_distributions='normal',
-                                 output_shape=crop,
-                                 output_div_by_n=output_divisible_by_n)
+                                 prior_distributions=prior_distribution,
+                                 output_shape=output_shape,
+                                 output_div_by_n=output_divisible_by_n,
+                                 blur_range=blur_range)
 
 if not os.path.exists(os.path.join(result_folder)):
     os.mkdir(result_folder)

@@ -6,7 +6,7 @@ import keras.backend as K
 import tensorflow_probability as tfp
 
 # project imports
-from lab2im.utils import utils
+from .utils import utils
 
 # third-party imports
 import ext.neuron.layers as nrn_layers

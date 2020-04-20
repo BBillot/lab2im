@@ -3,8 +3,8 @@ import numpy as np
 import numpy.random as npr
 
 # project imports
-from lab2im.utils import utils
-from lab2im.lab2im_model import lab2im_model
+from .utils import utils
+from .lab2im_model import lab2im_model
 
 
 class ImageGenerator:

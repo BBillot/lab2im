@@ -6,12 +6,12 @@ import keras.layers as KL
 import keras.backend as K
 
 # project imports
-from lab2im.utils import utils
-from lab2im.sample_gmm import sample_gmm_conditioned_on_labels
-from lab2im.spatial_augmentation import deform_tensor, random_cropping
-from lab2im.convert_labels import convert_labels, reset_label_values_to_zero
-from lab2im.blur_resample import blur_channel, get_gaussian_1d_kernels, resample_tensor
-from lab2im.intensity_augmentation import gamma_augmentation, bias_field_augmentation, min_max_normalisation
+from .utils import utils
+from .sample_gmm import sample_gmm_conditioned_on_labels
+from .spatial_augmentation import deform_tensor, random_cropping
+from .convert_labels import convert_labels, reset_label_values_to_zero
+from .blur_resample import blur_channel, get_gaussian_1d_kernels, resample_tensor
+from .intensity_augmentation import gamma_augmentation, bias_field_augmentation, min_max_normalisation
 
 
 def lab2im_model(labels_shape,
@@ -130,7 +130,7 @@ def lab2im_model(labels_shape,
         # intensity augmentation
         channel = KL.Lambda(lambda x: K.clip(x, 0, 300))(channel)
         channel = min_max_normalisation(channel)
-        processed_channels.append(gamma_augmentation(channel, std=0.5))
+        processed_channels.append(gamma_augmentation(channel, std=0.2))
 
     # concatenate all channels back
     if n_channels > 1:

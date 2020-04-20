@@ -74,7 +74,9 @@ repository.
 If you use this code, please cite the following paper:
 
 **A Learning Strategy for Contrast-agnostic MRI Segmentation** \
-Benjamin Billot, Douglas Greve, Koen Van Leemput, Bruce Fischl, Juan Eugenio Iglesias, Adrian V. Dalca \
+Benjamin Billot, Douglas Greve, Koen Van Leemput, Bruce Fischl, Juan Eugenio Iglesias*, Adrian V. Dalca* \
+*contributed equally \
+accepted for MIDL 2020 \
 [ [arxiv](https://arxiv.org/abs/2003.01995) | [bibtex](bibtex.txt) ]
 
 If you have any question regarding the usage of this code, or any suggestions to improve it you can contact me at:

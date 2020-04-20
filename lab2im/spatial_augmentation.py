@@ -5,7 +5,7 @@ import keras.layers as KL
 import keras.backend as K
 
 # project imports
-from lab2im.utils import utils, edit_volume
+from .utils import utils, edit_volume
 
 # third-party imports
 import ext.neuron.layers as nrn_layers
