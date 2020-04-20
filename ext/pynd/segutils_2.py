@@ -123,7 +123,7 @@ def seg_overlay(vol, seg, do_rgb=True, seg_wt=0.5, cmap=None):
 
 if __name__ == '__main__':
 
-    from utils import load_volume, save_volume
+    from lab2im.utils.utils import load_volume, save_volume
 
     path_seg = '/home/benjamin/data/mit/testing/flair/asegs/ADNI_002_S_0295_Axial_T2-FLAIR_S110475_I238624.nii.gz'
     path_overlap = '/home/benjamin/Pictures/images/hippocampus/figure_suppl_materials/flair/gt_countours.nii.gz'

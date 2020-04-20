@@ -3,8 +3,7 @@ import numpy as np
 from scipy.ndimage import binary_dilation, binary_erosion, gaussian_filter
 
 # project imports
-import utils
-from volume_editting import edit_labels
+from lab2im.utils import utils, edit_labels
 
 
 def mask_volume(volume, mask=None, threshold=0.1, dilate=0, erode=0, masking_value=0, return_mask=False):

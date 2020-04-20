@@ -7,9 +7,8 @@ from scipy.ndimage.filters import convolve
 from scipy.ndimage.morphology import distance_transform_edt
 
 # project imports
-import utils
-import building_blocks
-from volume_editting import edit_volume
+from lab2im.utils import utils, edit_volume
+from lab2im.blur import get_gaussian_1d_kernels, blur_tensor
 
 
 def correct_label_map(labels, list_incorrect_labels, list_correct_labels, smooth=False):
@@ -170,8 +169,8 @@ def erode_label_map(labels, labels_to_erode, erosion_factors=1, gpu=False, model
             if gpu:
                 if model is None:
                     mask_in = KL.Input(shape=labels_shape + [1], dtype='float32')
-                    list_k = building_blocks.get_gaussian_1d_kernels([1] * 3)
-                    blurred_mask = building_blocks.blur_tensor(mask_in, list_k, n_dims=n_dims)
+                    list_k = get_gaussian_1d_kernels([1] * 3)
+                    blurred_mask = blur_tensor(mask_in, list_k, n_dims=n_dims)
                     model = Model(inputs=mask_in, outputs=blurred_mask)
                 eroded_mask = model.predict(utils.add_axis(np.float32(mask), -2))
             else:

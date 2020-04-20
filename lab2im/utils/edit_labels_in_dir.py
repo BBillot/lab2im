@@ -7,9 +7,8 @@ import keras.layers as KL
 from keras.models import Model
 
 # project imports
-import utils
-import building_blocks
-from volume_editting import edit_labels
+from lab2im.utils import utils, edit_labels
+from lab2im.convert_labels import convert_labels
 
 
 def correct_labels_in_dir(labels_dir, list_incorrect_labels, list_correct_labels, results_dir, smooth=False,
@@ -110,7 +109,7 @@ def smooth_labels_in_dir(labels_dir, result_dir, gpu=False, path_label_list=None
 
     if gpu:
         # initialisation
-        label_list, _ = utils.get_list_labels(path_label_list=path_label_list, labels_dir=labels_dir, FS_sort=True)
+        label_list, _ = utils.get_list_labels(label_list=path_label_list, labels_dir=labels_dir, FS_sort=True)
         previous_model_input_shape = None
         smoothing_model = None
 
@@ -159,13 +158,13 @@ def smoothing_gpu_model(label_shape, label_list):
 
     # convert labels to new_label_list and use one hot encoding
     labels_in = KL.Input(shape=label_shape, name='lab_input', dtype='int32')
-    labels = building_blocks.convert_labels(labels_in, lut)
+    labels = convert_labels(labels_in, lut)
     labels = KL.Lambda(lambda x: tf.one_hot(tf.cast(x, dtype='int32'), depth=n_labels, axis=-1))(labels)
 
     # count neighbouring voxels
     n_dims, _ = utils.get_dims(label_shape)
     kernel = KL.Lambda(lambda x: tf.convert_to_tensor(
-        utils.add_axis(utils.add_axis(np.ones(tuple([n_dims]*n_dims)).astype('float32'), -1), -1)))([])
+        utils.add_axis(utils.add_axis(np.ones(tuple([n_dims] * n_dims)).astype('float32'), -1), -1)))([])
     split = KL.Lambda(lambda x: tf.split(x, [1] * n_labels, axis=-1))(labels)
     labels = KL.Lambda(lambda x: tf.nn.convolution(x[0], x[1], padding='SAME'))([split[0], kernel])
     for i in range(1, n_labels):
@@ -174,7 +173,7 @@ def smoothing_gpu_model(label_shape, label_list):
 
     # take the argmax and convert labels to original values
     labels = KL.Lambda(lambda x: tf.math.argmax(x, -1))(labels)
-    labels = building_blocks.convert_labels(labels, label_list)
+    labels = convert_labels(labels, label_list)
     return Model(inputs=labels_in, outputs=labels)
 
 

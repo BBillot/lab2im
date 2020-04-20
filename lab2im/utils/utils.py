@@ -110,12 +110,11 @@ def get_volume_info(path_volume, return_volume=False):
         return im_shape, vox2ras, n_dims, n_channels, header, data_res
 
 
-def get_list_labels(label_list=None, path_label_list=None, labels_dir=None, save_label_list=None, FS_sort=False):
-    """
-    This function reads or computes a list of all label values used in a set of label maps.
+def get_list_labels(label_list=None, labels_dir=None, save_label_list=None, FS_sort=False):
+    """This function reads or computes a list of all label values used in a set of label maps.
     It can also sort all labels according to FreeSurfer lut.
-    :param label_list: (optional) label list. Can be a list or 1d numpy array.
-    :param path_label_list: (optional) path of already computed label list.
+    :param label_list: (optional) already computed label_list. Can be a sequence, a 1d numpy array, or the path to
+    a numpy 1d array.
     :param labels_dir: (optional) if path_label_list is None, the label list is computed by reading all the label maps
     in this given folder.path of folder containing label maps.
     :param save_label_list: (optional) path where to save the label list.
@@ -127,35 +126,26 @@ def get_list_labels(label_list=None, path_label_list=None, labels_dir=None, save
     n_neutral_labels = len(label_list).
     """
 
-    # reformat label_list if directly provided
+    # load label list if previously computed
     if label_list is not None:
         label_list = np.array(reformat_to_list(label_list, load_as_numpy=True, dtype='int'))
 
+    # compute label list from all label files
+    elif labels_dir is not None:
+        print('Compiling list of unique labels')
+        # prepare data files
+        labels_paths = list_images_in_folder(labels_dir)
+        assert len(labels_paths) > 0, "Could not find any training data"
+        # go through all labels files and compute unique list of labels
+        label_list = np.empty(0)
+        for lab_idx, path in enumerate(labels_paths):
+            print_loop_info(lab_idx, len(labels_paths), 10)
+            y = load_volume(path)
+            y_unique = np.unique(y)
+            label_list = np.unique(np.concatenate((label_list, y_unique))).astype('int')
+
     else:
-        # load label list if previously computed
-        if path_label_list is not None:
-            if os.path.isfile(path_label_list):
-                print('Loading list of unique labels')
-                label_list = np.load(path_label_list)
-            else:
-                raise Exception('{}: file does not exist'.format(path_label_list))
-
-        # compute label list from all label files
-        elif labels_dir is not None:
-            print('Compiling list of unique labels')
-            # prepare data files
-            labels_paths = list_images_in_folder(labels_dir)
-            assert len(labels_paths) > 0, "Could not find any training data"
-            # go through all labels files and compute unique list of labels
-            label_list = np.empty(0)
-            for lab_idx, path in enumerate(labels_paths):
-                print_loop_info(lab_idx, len(labels_paths), 10)
-                y = load_volume(path)
-                y_unique = np.unique(y)
-                label_list = np.unique(np.concatenate((label_list, y_unique))).astype('int')
-
-        else:
-            raise Exception('either label_list, path_label_list or labels_dir should be provided')
+        raise Exception('either label_list, path_label_list or labels_dir should be provided')
 
     # sort labels in neutral/left/right according to FS labels
     n_neutral_labels = 0
@@ -579,17 +569,20 @@ def draw_value_from_distribution(hyperparameter,
                                  centre=0.,
                                  default_range=10.0,
                                  positive_only=True):
-    """Sample values from a uniform, or normal distribution of predefined hyper-parameters.
+    """Sample values from a uniform, or normal distribution of given hyper-parameters.
     These hyper-parameters are to the number of 2 in both uniform and normal cases.
     :param hyperparameter: values of the hyper-parameters. Can either be:
     1) None, in each case the two hyper-parameters are given by [center-default_range, center+default_range],
     2) a number, where the two hyper-parameters are given by [centre-hyperparameter, centre+hyperparameter],
-    3) a sequence of length 2, directly defining the two hyper-parameters,
-    4) a numpy array, with size (2*n, m). In this case, the function returns a 1d array of size m, where each value has
-    been sampled independently with different hyper-parameters. We first randomly select a block of two rows among the
-    n possibilities, and within that block, we use each column as a set of hyper-parameters to sample a new value.
-    :param size: (optional) number of values to sample.
-    All values are sampled independently. Used only if hyperparameter is not a numpy array.
+    3) a sequence of length 2, directly defining the two hyper-parameters: [min, max] if the distribution is uniform,
+    [mean, std] if the distribution is normal.
+    4) a numpy array, with size (2, m). In this case, the function returns a 1d array of size m, where each value has
+    been sampled independently with the specified hyper-parameters. If the distribution is uniform, rows correspond to
+    its lower and upper bounds, and if the distribution is normal, rows correspond to its mean and std deviation.
+    5) a numpy array of size (2*n, m). Same as 4) but we first randomly select a block of two rows among the
+    n possibilities.
+    :param size: (optional) number of values to sample. All values are sampled independently.
+    Used only if hyperparameter is not a numpy array.
     :param distribution: (optional) the distribution type. Can be 'uniform' or 'normal'. Default is 'uniform'.
     :param centre: (optional) default centre to use if hyperparameter is None or a number.
     :param default_range: (optional) default range to use if hyperparameter is None.
@@ -605,6 +598,7 @@ def draw_value_from_distribution(hyperparameter,
             hyperparameter = np.array([[centre - hyperparameter] * size, [centre + hyperparameter] * size])
         elif isinstance(hyperparameter, (list, tuple)):
             assert len(hyperparameter) == 2, 'if list, parameter_range should be of length 2.'
+            hyperparameter = np.transpose(np.tile(np.array(hyperparameter), (size, 1)))
         else:
             raise ValueError('parameter_range should either be None, a nummber, a sequence, or a numpy array.')
     elif isinstance(hyperparameter, np.ndarray):
@@ -625,3 +619,58 @@ def draw_value_from_distribution(hyperparameter,
         parameter_value[parameter_value < 0] = 0
 
     return parameter_value
+
+
+def create_affine_transformation_matrix(n_dims, scaling=None, rotation=None, shearing=None, translation=None):
+    """Create a 4x4 affine transformation matrix from specified values
+    :param n_dims: integer
+    :param scaling: list of 3 scaling values
+    :param rotation: list of 3 angles (degrees) for rotations around 1st, 2nd, 3rd axis
+    :param shearing: list of 6 shearing values
+    :param translation: list of 3 values
+    :return: 4x4 numpy matrix
+    """
+
+    T_scaling = np.eye(n_dims + 1)
+    T_shearing = np.eye(n_dims + 1)
+    T_translation = np.eye(n_dims + 1)
+
+    if scaling is not None:
+        T_scaling[np.arange(n_dims + 1), np.arange(n_dims + 1)] = np.append(scaling, 1)
+
+    if shearing is not None:
+        shearing_index = np.ones((n_dims + 1, n_dims + 1), dtype='bool')
+        shearing_index[np.eye(n_dims + 1, dtype='bool')] = False
+        shearing_index[-1, :] = np.zeros((n_dims + 1))
+        shearing_index[:, -1] = np.zeros((n_dims + 1))
+        T_shearing[shearing_index] = shearing
+
+    if translation is not None:
+        T_translation[np.arange(n_dims), n_dims * np.ones(n_dims, dtype='int')] = translation
+
+    if n_dims == 2:
+        if rotation is None:
+            rotation = np.zeros(1)
+        else:
+            rotation = np.asarray(rotation) * (math.pi / 180)
+        T_rot = np.eye(n_dims + 1)
+        T_rot[np.array([0, 1, 0, 1]), np.array([0, 0, 1, 1])] = [np.cos(rotation[0]), np.sin(rotation[0]),
+                                                                 np.sin(rotation[0]) * -1, np.cos(rotation[0])]
+        return T_translation @ T_rot @ T_shearing @ T_scaling
+
+    else:
+
+        if rotation is None:
+            rotation = np.zeros(n_dims)
+        else:
+            rotation = np.asarray(rotation) * (math.pi / 180)
+        T_rot1 = np.eye(n_dims + 1)
+        T_rot1[np.array([1, 2, 1, 2]), np.array([1, 1, 2, 2])] = [np.cos(rotation[0]), np.sin(rotation[0]),
+                                                                  np.sin(rotation[0]) * -1, np.cos(rotation[0])]
+        T_rot2 = np.eye(n_dims + 1)
+        T_rot2[np.array([0, 2, 0, 2]), np.array([0, 0, 2, 2])] = [np.cos(rotation[1]), np.sin(rotation[1]) * -1,
+                                                                  np.sin(rotation[1]), np.cos(rotation[1])]
+        T_rot3 = np.eye(n_dims + 1)
+        T_rot3[np.array([0, 1, 0, 1]), np.array([0, 0, 1, 1])] = [np.cos(rotation[2]), np.sin(rotation[2]),
+                                                                  np.sin(rotation[2]) * -1, np.cos(rotation[2])]
+        return T_translation @ T_rot3 @ T_rot2 @ T_rot1 @ T_shearing @ T_scaling

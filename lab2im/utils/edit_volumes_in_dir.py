@@ -8,9 +8,8 @@ import keras.backend as K
 from keras.models import Model
 
 # project imports
-import utils
-import building_blocks
-from volume_editting import edit_volume
+from lab2im.utils import utils, edit_volume
+from lab2im.blur import get_gaussian_1d_kernels, blur_tensor
 
 
 def mask_images_in_dir(image_dir, result_dir, mask_dir=None, threshold=0.1, dilate=0, erode=0, masking_value=0,
@@ -318,13 +317,13 @@ def blur_images_in_dir(image_dir, result_dir, sigma, mask_dir=None, gpu=False, r
                     previous_model_input_shape = im_shape
                     image_in = [KL.Input(shape=im_shape + [1])]
                     sigma = utils.reformat_to_list(sigma, length=n_dims)
-                    kernels_list = building_blocks.get_gaussian_1d_kernels(sigma)
-                    image = building_blocks.blur_tensor(image_in[0], kernels_list, n_dims)
+                    kernels_list = get_gaussian_1d_kernels(sigma)
+                    image = blur_tensor(image_in[0], kernels_list, n_dims)
                     if mask is not None:
                         image_in.append(KL.Input(shape=im_shape + [1], dtype='float32'))  # mask
                         masked_mask = KL.Lambda(lambda x: tf.where(tf.greater(x, 0), tf.ones_like(x, dtype='float32'),
                                                                    tf.zeros_like(x, dtype='float32')))(image_in[1])
-                        blurred_mask = building_blocks.blur_tensor(masked_mask, kernels_list, n_dims)
+                        blurred_mask = blur_tensor(masked_mask, kernels_list, n_dims)
                         image = KL.Lambda(lambda x: x[0] / (x[1] + K.epsilon()))([image, blurred_mask])
                         image = KL.Lambda(lambda x: tf.where(tf.cast(x[1], dtype='bool'), x[0],
                                                              tf.zeros_like(x[0])))([image, masked_mask])
@@ -595,9 +594,9 @@ def simulate_upsampled_anisotropic_images(image_dir,
                 if (im_shape != previous_model_input_shape) | (model is None):
                     previous_model_input_shape = im_shape
                     image_in = KL.Input(shape=im_shape + [1])
-                    kernels_list = building_blocks.get_gaussian_1d_kernels(sigma)
+                    kernels_list = get_gaussian_1d_kernels(sigma)
                     kernels_list = [None if data_res[i] == image_res[i] else kernels_list[i] for i in range(n_dims)]
-                    image = building_blocks.blur_tensor(image_in, kernels_list, n_dims)
+                    image = blur_tensor(image_in, kernels_list, n_dims)
                     model = Model(inputs=image_in, outputs=image)
                 im = np.squeeze(model.predict(utils.add_axis(im, -2)))
             else:

@@ -3,8 +3,7 @@ import os
 import numpy as np
 
 # project imports
-import utils
-from volume_editting import edit_volume
+from lab2im.utils import utils, edit_volume
 
 
 def check_images_and_labels(image_dir, labels_dir):
