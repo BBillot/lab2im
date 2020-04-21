@@ -14,9 +14,10 @@ own model. A more complete example of how to use these functions can be found at
 The model is implemented in keras with a tensorflow backend, and relies on the 
 [neuron](https://github.com/adalca/neuron) package [1,2].
 
+
 ----------------
 
-## Content
+### Content
 
 - [lab2im](lab2im): this is the main folder containing the lab2im model and separate functions to manipulate tensors:
 
@@ -52,7 +53,7 @@ order to easily generate images. This script uses data from the [data_example](d
 
 ----------------
 
-## Requirements
+### Requirements
 
 All the requirements are listed in requirements.txt. We list here the important dependencies:
 
@@ -67,9 +68,10 @@ All the requirements are listed in requirements.txt. We list here the important 
 Because some changes were made compared to the current version of *neuron*, the package is already included in this
 repository.
 
+
 ----------------
 
-## Citation/Contact
+### Citation/Contact
 
 If you use this code, please cite the following paper:
 
@@ -82,7 +84,10 @@ accepted for MIDL 2020 \
 If you have any question regarding the usage of this code, or any suggestions to improve it you can contact me at:
 benjamin.billot.18@ucl.ac.uk
 
+
 ----------------
+
+###References
 
 [1] *Anatomical Priors in Convolutional Networks for Unsupervised Biomedical Segmentation* \
 Adrian V. Dalca, John Guttag, Mert R. Sabuncu, 2018
