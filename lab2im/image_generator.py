@@ -159,7 +159,7 @@ class ImageGenerator:
         while True:
 
             # randomly pick as many images as batch_size
-            unique_indices = npr.randint(len(self.labels_paths), size=batch_size)
+            label_map_indices = npr.randint(len(self.labels_paths), size=batch_size)
 
             # initialise input tensors
             y_all = []
@@ -169,10 +169,10 @@ class ImageGenerator:
             nonlinear_field_all = []
             bias_field_all = []
 
-            for idx in unique_indices:
+            for label_map_idx in label_map_indices:
 
                 # add labels to inputs
-                y = utils.load_volume(self.labels_paths[idx], dtype='int')
+                y = utils.load_volume(self.labels_paths[label_map_idx], dtype='int')
                 y_all.append(utils.add_axis(y, axis=-2))
 
                 # add means and standard deviations to inputs
@@ -209,9 +209,9 @@ class ImageGenerator:
                         tmp_prior_stds, n_labels, self.prior_distributions, 15., 10.), -1)
                     # share stats between labels of the same class
                     if self.generation_classes is not None:
-                        unique_classes, unique_indices = np.unique(self.generation_classes, return_index=True)
-                        unique_tmp_means = tmp_means[unique_indices]
-                        unique_tmp_stds = tmp_stds[unique_indices]
+                        unique_classes, label_map_indices = np.unique(self.generation_classes, return_index=True)
+                        unique_tmp_means = tmp_means[label_map_indices]
+                        unique_tmp_stds = tmp_stds[label_map_indices]
                         for idx_class, tmp_class in enumerate(unique_classes):
                             tmp_means[self.generation_classes == tmp_class] = unique_tmp_means[idx_class]
                             tmp_stds[self.generation_classes == tmp_class] = unique_tmp_stds[idx_class]
