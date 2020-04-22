@@ -89,7 +89,7 @@ def lab2im_model(labels_shape,
     labels = convert_labels(labels_input, lut)
 
     # deform labels
-    labels = deform_tensor(labels, affine_trans=aff_in)
+    labels = deform_tensor(labels, affine_trans=aff_in, interp_method='nearest')
     labels = KL.Lambda(lambda x: tf.cast(x, dtype='int32'))(labels)
 
     # cropping
