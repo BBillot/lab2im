@@ -14,6 +14,21 @@ own model. A more complete example of how to use these functions can be found at
 The model is implemented in keras with a tensorflow backend, and relies on the 
 [neuron](https://github.com/adalca/neuron) package [1,2].
 
+\
+The following figure shows synthetic brain MRI scans generated whith lab2im. It also illustrates the effect of using 
+prior distributions when sampling the GMM parameters. \
+![Generation exmaples](data_example/figure.png)
+
+----------------
+
+### Try it in two lines !
+
+```
+from lab2im.image_generator import ImageGenerator
+
+brain_generator = ImageGenerator("../data_example/brain_label_map.nii.gz")
+im, lab = brain_generator.generate_image()
+```
 
 ----------------
 
@@ -45,8 +60,11 @@ The model is implemented in keras with a tensorflow backend, and relies on the
   
   - [utils](lab2im/utils.py): contains all the utility functions used in this repository.
   
-- scripts: example of a [script](scripts/brain_generator.py) explaining how to use the the `ImageGenerator` wrapper in
-order to easily generate images. This script uses data from the [data_example](data_example) folder.
+- [scripts](/scripts): simples scripts explaining how to easily generate images. Start with 
+[simple_example](scripts/simple_example.py) which shows how to generate images in 2 lines. Then have a look at
+[brain_generator](scripts/brain_generator.py) that introduces some functionalities of 
+`ImageGenerator`. Finally, [t1w_generator](scripts/t1w_generator.py) examplifies how to use impose prior distributions 
+to the GMM in order to sample image of desired intensity distributions.
 
 - ext: contains modules, especially the modified version of *neuron*
 

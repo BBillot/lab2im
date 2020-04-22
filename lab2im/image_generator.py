@@ -94,11 +94,11 @@ class ImageGenerator:
             utils.get_volume_info(self.labels_paths[0])
         self.n_channels = n_channels
         if generation_labels is not None:
-            self.generation_labels = generation_labels
+            self.generation_labels = utils.load_array_if_path(generation_labels)
         else:
             self.generation_labels = utils.get_list_labels(labels_dir=labels_dir)
         if output_labels is not None:
-            self.output_labels = output_labels
+            self.output_labels = utils.load_array_if_path(output_labels)
         else:
             self.output_labels = self.generation_labels
         self.target_res = utils.load_array_if_path(target_res)
@@ -148,7 +148,7 @@ class ImageGenerator:
     def generate_image(self):
         """call this method when an object of this class has been instantiated to generate new brains"""
         (image, labels) = next(self.image_generator)
-        return image, labels
+        return np.squeeze(image), np.squeeze(labels)
 
     def _build_model_inputs(self, n_labels, batch_size=1):
 

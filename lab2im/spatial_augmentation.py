@@ -209,3 +209,13 @@ def restrict_tensor(tensor, axes, boundaries):
     tensor = KL.multiply([tensor, mask])
 
     return tensor, mask
+
+
+def build_rotation_matrix(theta, n_dims):
+
+    if n_dims == 2:
+        rotation_matrix = tf.concat([tf.cos(theta), -tf.sin(theta), tf.zeros(1), tf.zeros(1),
+                                     tf.sin(theta), tf.cos(theta), tf.zeros(1), tf.zeros(1),
+                                     tf.zeros(1), tf.zeros(1), tf.ones(1), tf.zeros(1),
+                                     tf.zeros(1), tf.zeros(1), tf.zeros(1), tf.ones(1)], axis=0)
+        rotation_matrix = tf.reshape(rotation_matrix, (4, 4))

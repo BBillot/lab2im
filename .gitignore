@@ -1,5 +1,4 @@
-.idea
-lab2im/__pycache__
-lab2im/utils/__pycache__
 venv
+**/__pycache__/
+.idea
 data_example/generated_images/
