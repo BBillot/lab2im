@@ -16,7 +16,9 @@ The model is implemented in keras with a tensorflow backend, and relies on the
 
 \
 The following figure shows synthetic brain MRI scans generated whith lab2im. It also illustrates the effect of using 
-prior distributions when sampling the GMM parameters. \
+prior distributions when sampling the GMM parameters.
+\
+\
 ![Generation exmaples](data_example/figure.png)
 
 ----------------
@@ -26,7 +28,7 @@ prior distributions when sampling the GMM parameters. \
 ```
 from lab2im.image_generator import ImageGenerator
 
-brain_generator = ImageGenerator("../data_example/brain_label_map.nii.gz")
+brain_generator = ImageGenerator("./data_example/brain_label_map.nii.gz")
 im, lab = brain_generator.generate_image()
 ```
 
