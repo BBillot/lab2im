@@ -36,9 +36,6 @@ class ImageGenerator:
         :param generation_labels: (optional) list of all possible label values in the input label maps.
         Default is None, where the label values are directly gotten from the provided label maps.
         If not None, can be a sequence or a 1d numpy array, or the path to a 1d numpy array.
-        :param output_labels: (optional) list of all the label values to keep in the output label maps. Label values
-        that are in generation_labels but not in output_labels are reset to zero.
-        Can be a sequence, a 1d numpy array, or the path to a 1d numpy array.
         :param output_labels: (optional) list of all the label values to keep in the output label maps.
         Should be a subset of the values contained in generation_labels.
         Label values that are in generation_labels but not in output_labels are reset to zero.
@@ -50,7 +47,7 @@ class ImageGenerator:
         :param target_res: (optional) target resolution of the generated images and corresponding label maps.
         If None, the outputs will have the same resolution as the input label maps.
         Can be a number (isotropic resolution), a sequence, a 1d numpy array, or the path to a 1d numpy array.
-        :param output_shape: (optional) desired shape of the output images, obtained by cropping.
+        :param output_shape: (optional) shape of the output image, obtained by randomly cropping the generated image.
         Can be an integer (same size in all dimensions), a sequence, a 1d numpy array, or the path to a 1d numpy array.
         :param output_div_by_n: (optional) forces the output shape to be divisible by this value. It overwrites
         output_shape if necessary. Can be an integer (same size in all dimensions), a sequence, a 1d numpy array, or
