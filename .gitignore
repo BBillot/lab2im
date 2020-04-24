@@ -1,4 +1,4 @@
 venv
 **/__pycache__/
 .idea
-data_example/generated_images/
+tutorials/generated_images
