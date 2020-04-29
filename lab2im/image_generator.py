@@ -32,6 +32,11 @@ class ImageGenerator:
 
         :param labels_dir: path of folder with all input label maps, or to a single label map.
 
+        # IMPORTANT !!!
+        # Each time we provide a parameter with separate values for each axis (e.g. with a numpy array or a sequence),
+        # these values refer to the axes of the raw label map (i.e. once it has been loaded in python).
+        # Depending on the label map orientation, the axes of its raw array may or may not correspond to the RAS axes.
+
         # label maps-related parameters
         :param generation_labels: (optional) list of all possible label values in the input label maps.
         Default is None, where the label values are directly gotten from the provided label maps.
@@ -58,7 +63,7 @@ class ImageGenerator:
         distribution. Regouped labels will thus share the same Gaussian when samling a new image. Can be a sequence, a
         1d numpy array, or the path to a 1d numpy array.
         It should have the same length as generation_labels, and contain values between 0 and K-1, where K is the total
-        number of classes. Default is all labels have different classes.
+        number of classes. Default is all labels have different classes (K=len(generation_labels)).
         :param prior_distributions: (optional) type of distribution from which we sample the GMM parameters.
         Can either be 'uniform', or 'normal'. Default is 'uniform'.
         :param prior_means: (optional) hyperparameters controlling the prior distributions of the GMM means. Because
