@@ -58,7 +58,7 @@ def deform_tensor(tensor,
         tensor_shape = KL.Lambda(lambda x: tf.shape(x))(tensor)
         split_shape = KL.Lambda(lambda x: tf.split(x, [1, n_dims + 1]))(tensor_shape)
         nonlin_shape = KL.Lambda(lambda x: tf.concat([x, tf.convert_to_tensor(small_shape)], axis=0))(split_shape[0])
-        nonlin_std_prior = KL.Lambda(lambda x: tf.random.normal((1, 1), maxval=nonlin_std))([])
+        nonlin_std_prior = KL.Lambda(lambda x: tf.random.uniform((1, 1), maxval=nonlin_std))([])
         elastic_trans = KL.Lambda(lambda x: tf.random.normal(x[0], stddev=x[1]))([nonlin_shape, nonlin_std_prior])
         elastic_trans._keras_shape = tuple(elastic_trans.get_shape().as_list())
 
