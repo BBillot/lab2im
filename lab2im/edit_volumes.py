@@ -311,7 +311,7 @@ def flip_volume(volume, axis=None, direction=None, aff=None):
 
     # get flipping axis from aff if axis not provided
     if (axis is None) & (aff is not None):
-        volume_axes = get_ras_axes(aff)
+        volume_axes, _ = get_ras_axes_and_signs(aff)
         if direction == 'rl':
             axis = volume_axes[0]
         elif direction == 'ap':
@@ -325,7 +325,7 @@ def flip_volume(volume, axis=None, direction=None, aff=None):
     return np.flip(volume, axis=axis)
 
 
-def get_ras_axes(aff, n_dims=3):
+def get_ras_axes_and_signs(aff, n_dims=3):
     """This function finds the RAS axes corresponding to each dimension of a volume, based on its affine matrix.
     :param aff: affine matrix Can be a 2d numpy array of size n_dims*n_dims, n_dims+1*n_dims+1, or n_dims*n_dims+1.
     :param n_dims: number of dimensions (excluding channels) of the volume corresponding to the provided affine matrix.
@@ -334,47 +334,39 @@ def get_ras_axes(aff, n_dims=3):
     """
     aff_inverted = np.linalg.inv(aff)
     img_ras_axes = np.argmax(np.absolute(aff_inverted[0:n_dims, 0:n_dims]), axis=0)
-    return img_ras_axes
+    img_ras_signs = np.sign(aff_inverted[img_ras_axes, np.arange(3)])
+    return img_ras_axes, img_ras_signs
 
 
-def align_volume_to_ref(volume, aff_flo, aff_ref=None, return_aff=False):
-    """This function aligns a volume to a reference orientation (axis and direction) specified by an affine matrix.
+def align_volume_to_ref(volume, ref_ras_axes, ref_ras_signs, vol_ras_axes, vol_ras_signs):
+    """This function aligns a volume to a given orientation (axis and direction).
     :param volume: a numpy array
-    :param aff_flo: affine matrix of the floating volume
-    :param aff_ref: (optional) affine matrix of the target orientation. Default is identity matrix.
-    :param return_aff: (optional) whether to return the affine matrix of the aligned volume
-    :return: aligned volume, with corresponding affine matrix if return_aff is True.
+    :param ref_ras_axes: ras axes along which to align volume
+    :param ref_ras_signs: ras directions along which to align volume
+    :param vol_ras_axes: current ras axes
+    :param vol_ras_signs: current ras signs
+    :return: aligned volume
     """
 
-    # default value for aff_ref
-    if aff_ref is None:
-        aff_ref = np.eye(4)
-
-    # extract ras axes
     n_dims, _ = utils.get_dims(volume.shape)
-    ras_axes_ref = get_ras_axes(aff_ref, n_dims=n_dims)
-    ras_axes_flo = get_ras_axes(aff_flo, n_dims=n_dims)
 
-    # align axes
-    aff_flo[:, ras_axes_ref] = aff_flo[:, ras_axes_flo]
+    # work on copies
+    cp_ref_ras_axes = ref_ras_axes.copy()
+    cp_ref_ras_signs = ref_ras_signs.copy()
+    cp_im_ras_axes = vol_ras_axes.copy()
+    cp_im_ras_signs = vol_ras_signs.copy()
+
+    # align axis
     for i in range(n_dims):
-        if ras_axes_flo[i] != ras_axes_ref[i]:
-            volume = np.swapaxes(volume, ras_axes_flo[i], ras_axes_ref[i])
-            swapped_axis_idx = np.where(ras_axes_flo == ras_axes_ref[i])
-            ras_axes_flo[swapped_axis_idx], ras_axes_flo[i] = ras_axes_flo[i], ras_axes_flo[swapped_axis_idx]
+        volume = np.swapaxes(volume, cp_im_ras_axes[i], cp_ref_ras_axes[i])
+        swapped_axis_idx = np.where(cp_im_ras_axes == cp_ref_ras_axes[i])
+        cp_im_ras_axes[swapped_axis_idx], cp_im_ras_axes[i] = cp_im_ras_axes[i], cp_im_ras_axes[swapped_axis_idx]
+        cp_im_ras_signs[swapped_axis_idx], cp_im_ras_signs[i] = cp_im_ras_signs[i], cp_im_ras_signs[swapped_axis_idx]
 
     # align directions
-    dot_products = np.sum(aff_flo[:3, :3] * aff_ref[:3, :3], axis=0)
-    for i in range(n_dims):
-        if dot_products[i] < 0:
-            volume = np.flip(volume, axis=i)
-            aff_flo[:, i] = - aff_flo[:, i]
-            aff_flo[:3, 3] = aff_flo[:3, 3] - aff_flo[:3, i] * (volume.shape[i] - 1)
-
-    if return_aff:
-        return volume, aff_flo
-    else:
-        return volume
+    axis_to_align = tuple(ref_ras_axes[cp_im_ras_signs != cp_ref_ras_signs])
+    volume = np.flip(volume, axis=axis_to_align)
+    return volume
 
 
 def blur_volume(volume, sigma, mask=None):
@@ -863,14 +855,11 @@ def flip_images_in_dir(image_dir, result_dir, axis=None, direction=None, recompu
             utils.save_volume(im, aff, h, path_result)
 
 
-def align_images_in_dir(image_dir, result_dir, aff_ref=None, path_ref_image=None, recompute=True):
-    """This function aligns all images in image_dir to a reference orientation (axes and directions).
-    This reference orientation can be directly provided as an affine matrix, or can be specified by a reference volume.
-    If neither are provided, the reference orientation is assumed to be an identity matrix.
+def align_images_in_dir(image_dir, result_dir, path_ref_image, recompute=True):
+    """This function aligns all images in image_dir to the orientations of a reference image.
     :param image_dir: path of directory with images to align
     :param result_dir: path of directory where flipped images will be writen
-    :param aff_ref: (optional) reference affine matrix. Can be a numpy array, or the path to such array.
-    :param path_ref_image: (optional) path of a volume to which all images will be aligned.
+    :param path_ref_image: path of a single reference image.
     :param recompute: (optional) whether to recompute result files even if they already exists
     """
 
@@ -878,13 +867,9 @@ def align_images_in_dir(image_dir, result_dir, aff_ref=None, path_ref_image=None
     if not os.path.isdir(result_dir):
         os.mkdir(result_dir)
 
-    # read reference affine matrix
-    if path_ref_image is not None:
-        _, aff_ref, _ = utils.load_volume(path_ref_image, im_only=False)
-    elif aff_ref is not None:
-        aff_ref = utils.load_array_if_path(aff_ref)
-    else:
-        aff_ref = np.eye(4)
+    # read ref axes and signs
+    _, ref_aff, n_dims, _, _, _ = utils.get_volume_info(path_ref_image)
+    ref_axes, ref_signs = get_ras_axes_and_signs(ref_aff, n_dims=n_dims)
 
     # loop over images
     path_images = utils.list_images_in_folder(image_dir)
@@ -895,8 +880,9 @@ def align_images_in_dir(image_dir, result_dir, aff_ref=None, path_ref_image=None
         path_result = os.path.join(result_dir, os.path.basename(path_image))
         if (not os.path.isfile(path_result)) | recompute:
             im, aff, h = utils.load_volume(path_image, im_only=False)
-            im, aff = align_volume_to_ref(im, aff, aff_ref=aff_ref, return_aff=True)
-            utils.save_volume(im, aff_ref, h, path_result)
+            im_axes, im_signs = get_ras_axes_and_signs(aff, n_dims=n_dims)
+            im = align_volume_to_ref(im, ref_axes, ref_signs, im_axes, im_signs)
+            utils.save_volume(im, ref_aff, h, path_result)
 
 
 def correct_nans_images_in_dir(image_dir, result_dir, recompute=True):
