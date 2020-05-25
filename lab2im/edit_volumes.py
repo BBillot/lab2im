@@ -337,14 +337,17 @@ def get_ras_axes(aff, n_dims=3):
     return img_ras_axes
 
 
-def align_volume_to_ref(volume, aff_flo, aff_ref=None, return_aff=False):
+def align_volume_to_ref(volume, aff, aff_ref=None, return_aff=False):
     """This function aligns a volume to a reference orientation (axis and direction) specified by an affine matrix.
     :param volume: a numpy array
-    :param aff_flo: affine matrix of the floating volume
+    :param aff: affine matrix of the floating volume
     :param aff_ref: (optional) affine matrix of the target orientation. Default is identity matrix.
     :param return_aff: (optional) whether to return the affine matrix of the aligned volume
     :return: aligned volume, with corresponding affine matrix if return_aff is True.
     """
+
+    # work on copy
+    aff_flo = aff.copy()
 
     # default value for aff_ref
     if aff_ref is None:
