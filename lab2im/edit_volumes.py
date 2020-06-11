@@ -337,12 +337,13 @@ def get_ras_axes(aff, n_dims=3):
     return img_ras_axes
 
 
-def align_volume_to_ref(volume, aff, aff_ref=None, return_aff=False):
+def align_volume_to_ref(volume, aff, aff_ref=None, return_aff=False, n_dims=None):
     """This function aligns a volume to a reference orientation (axis and direction) specified by an affine matrix.
     :param volume: a numpy array
     :param aff: affine matrix of the floating volume
     :param aff_ref: (optional) affine matrix of the target orientation. Default is identity matrix.
     :param return_aff: (optional) whether to return the affine matrix of the aligned volume
+    :param n_dims: number of dimensions (excluding channels) of the volume corresponding to the provided affine matrix.
     :return: aligned volume, with corresponding affine matrix if return_aff is True.
     """
 
@@ -354,7 +355,8 @@ def align_volume_to_ref(volume, aff, aff_ref=None, return_aff=False):
         aff_ref = np.eye(4)
 
     # extract ras axes
-    n_dims, _ = utils.get_dims(volume.shape)
+    if n_dims is None:
+        n_dims, _ = utils.get_dims(volume.shape)
     ras_axes_ref = get_ras_axes(aff_ref, n_dims=n_dims)
     ras_axes_flo = get_ras_axes(aff_flo, n_dims=n_dims)
 
