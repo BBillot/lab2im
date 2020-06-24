@@ -7,6 +7,7 @@
 # means and standard deviations of the GMM.
 
 import os
+import time
 from lab2im.utils import save_volume
 from lab2im.image_generator import ImageGenerator
 
@@ -57,7 +58,10 @@ if not os.path.exists(os.path.join(result_dir)):
 for n in range(n_examples):
 
     # generate new image and corresponding labels
+    start = time.time()
     im, lab = brain_generator.generate_image()
+    end = time.time()
+    print('generation {0:d} took {1:.01f}s'.format(n, end - start))
 
     # save output image and label map
     save_volume(im, brain_generator.aff, brain_generator.header, os.path.join(result_dir, 't1_%s.nii.gz' % n))
