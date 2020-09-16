@@ -132,7 +132,8 @@ def get_volume_info(path_volume, return_volume=False, aff_ref=None):
     :param return_volume: (optional) whether to return the volume along with the information.
     :param aff_ref: (optional) If not None, the loaded volume is aligned to this affine matrix.
     All info relative to the volume is then given in this new space. Must be a numpy array of dimension 4x4.
-    :return: volume (if return_volume is true), and corresponding info.
+    :return: volume (if return_volume is true), and corresponding info. If aff_ref is not None, the returned aff is
+    the original one, i.e. the affine of the image before being aligned to aff_ref.
     """
     # read image
     im, aff, header = load_volume(path_volume, im_only=False)
@@ -155,7 +156,7 @@ def get_volume_info(path_volume, return_volume=False, aff_ref=None):
         from . import edit_volumes  # the import is done here to avoid import loops
         ras_axes = edit_volumes.get_ras_axes(aff, n_dims=n_dims)
         ras_axes_ref = edit_volumes.get_ras_axes(aff_ref, n_dims=n_dims)
-        im, aff = edit_volumes.align_volume_to_ref(im, aff, aff_ref=aff_ref, return_aff=True, n_dims=n_dims)
+        im = edit_volumes.align_volume_to_ref(im, aff, aff_ref=aff_ref, n_dims=n_dims)
         im_shape = np.array(im_shape)
         data_res = np.array(data_res)
         im_shape[ras_axes_ref] = im_shape[ras_axes]
@@ -629,9 +630,9 @@ def build_gaussian_kernel(sigma, n_dims):
     return h
 
 
-def get_std_blurring_mask_for_downsampling(dowsample_res, current_res, thickness=None):
+def get_std_blurring_mask_for_downsampling(downsample_res, current_res, thickness=None):
     """Compute standard deviations of 1d gaussian masks for image blurring before downsampling.
-    :param dowsample_res: resolution to dowsample to. Can be a 1d numpy array or list.
+    :param downsample_res: resolution to downsample to. Can be a 1d numpy array or list.
     :param current_res: resolution of the volume before downsampling.
     Can be a 1d numpy array or list of the same length as downsample res.
     :param thickness: slices thickness in each dimension.
@@ -639,20 +640,20 @@ def get_std_blurring_mask_for_downsampling(dowsample_res, current_res, thickness
     :return: standard deviation of the blurring masks
     """
     # reformat data resolution at which we blur
-    n_dims = len(dowsample_res)
+    n_dims = len(downsample_res)
     if thickness is not None:
-        dowsample_res = [min(dowsample_res[i], thickness[i]) for i in range(n_dims)]
+        downsample_res = [min(downsample_res[i], thickness[i]) for i in range(n_dims)]
 
     # build 1d blurring kernels for each direction
     sigma = [0] * n_dims
     for i in range(n_dims):
         # define sigma
-        if dowsample_res[i] == 0:
+        if downsample_res[i] == 0:
             sigma[i] = 0
-        elif current_res[i] == dowsample_res[i]:
+        elif current_res[i] == downsample_res[i]:
             sigma[i] = np.float32(0.5)
         else:
-            sigma[i] = np.float32(0.75 * np.around(dowsample_res[i] / current_res[i], 3))
+            sigma[i] = np.float32(0.75 * np.around(downsample_res[i] / current_res[i], 3))
 
     return sigma
 
@@ -675,6 +676,7 @@ def draw_value_from_distribution(hyperparameter,
     its lower and upper bounds, and if the distribution is normal, rows correspond to its mean and std deviation.
     5) a numpy array of size (2*n, m). Same as 4) but we first randomly select a block of two rows among the
     n possibilities.
+    6) the path to a numpy array corresponding to case 4 or 5.
     :param size: (optional) number of values to sample. All values are sampled independently.
     Used only if hyperparameter is not a numpy array.
     :param distribution: (optional) the distribution type. Can be 'uniform' or 'normal'. Default is 'uniform'.
@@ -685,6 +687,7 @@ def draw_value_from_distribution(hyperparameter,
     """
 
     # reformat parameter_range
+    hyperparameter = load_array_if_path(hyperparameter, load_as_numpy=True)
     if not isinstance(hyperparameter, np.ndarray):
         if hyperparameter is None:
             hyperparameter = np.array([[centre - default_range] * size, [centre + default_range] * size])
