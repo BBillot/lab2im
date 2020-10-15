@@ -8,7 +8,7 @@
 
 import os
 import time
-from lab2im.utils import save_volume
+from lab2im import utils
 from lab2im.image_generator import ImageGenerator
 
 
@@ -52,8 +52,7 @@ brain_generator = ImageGenerator(labels_dir=path_label_map,
                                  output_shape=output_shape)
 
 # create result dir
-if not os.path.exists(os.path.join(result_dir)):
-    os.mkdir(result_dir)
+utils.mkdir(result_dir)
 
 for n in range(n_examples):
 
@@ -64,5 +63,7 @@ for n in range(n_examples):
     print('generation {0:d} took {1:.01f}s'.format(n, end - start))
 
     # save output image and label map
-    save_volume(im, brain_generator.aff, brain_generator.header, os.path.join(result_dir, 't1_%s.nii.gz' % n))
-    save_volume(lab, brain_generator.aff, brain_generator.header, os.path.join(result_dir, 't1_labels_%s.nii.gz' % n))
+    utils.save_volume(im, brain_generator.aff, brain_generator.header,
+                      os.path.join(result_dir, 't1_%s.nii.gz' % n))
+    utils.save_volume(lab, brain_generator.aff, brain_generator.header,
+                      os.path.join(result_dir, 't1_labels_%s.nii.gz' % n))

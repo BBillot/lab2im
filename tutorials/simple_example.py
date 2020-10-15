@@ -16,7 +16,6 @@ brain_generator = ImageGenerator(path_label_map)
 im, lab = brain_generator.generate_image()
 
 # save output image and label map
-if not os.path.exists(os.path.join(result_dir)):
-    os.mkdir(result_dir)
+utils.mkdir(result_dir)
 utils.save_volume(im, brain_generator.aff, brain_generator.header, os.path.join(result_dir, 'brain.nii.gz'))
 utils.save_volume(lab, brain_generator.aff, brain_generator.header, os.path.join(result_dir, 'labels.nii.gz'))
