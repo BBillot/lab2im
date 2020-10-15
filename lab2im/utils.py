@@ -17,6 +17,7 @@
     -list_subfolders
     -strip_extension
     -strip_suffix
+    -mkdir
 4- shape-related functions
     -get_dims
     -get_resample_shape
@@ -140,7 +141,7 @@ def get_volume_info(path_volume, return_volume=False, aff_ref=None):
 
     # understand if image is multichannel
     im_shape = list(im.shape)
-    n_dims, n_channels = get_dims(im_shape, max_channels=3)
+    n_dims, n_channels = get_dims(im_shape, max_channels=10)
     im_shape = im_shape[:n_dims]
 
     # get labels res
@@ -472,10 +473,20 @@ def strip_suffix(path):
     return path
 
 
+def mkdir(path_dir):
+    """Recursively creates the current dir as well as its parent folders if they do not already exist."""
+    if not os.path.isdir(path_dir):
+        list_dir_to_create = [path_dir]
+        while not os.path.isdir(os.path.dirname(list_dir_to_create[-1])):
+            list_dir_to_create.append(os.path.dirname(list_dir_to_create[-1]))
+        for dir_to_create in reversed(list_dir_to_create):
+            os.mkdir(dir_to_create)
+
+
 # ---------------------------------------------- shape-related functions -----------------------------------------------
 
 
-def get_dims(shape, max_channels=3):
+def get_dims(shape, max_channels=10):
     """Get the number of dimensions and channels from the shape of an array.
     The number of dimensions is assumed to be the length of the shape, as long as the shape of the last dimension is
     inferior or equal to max_channels (default 3).
