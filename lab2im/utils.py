@@ -83,7 +83,7 @@ def load_volume(path_volume, im_only=True, squeeze=True, dtype=None, aff_ref=Non
     # align image to reference affine matrix
     if aff_ref is not None:
         from . import edit_volumes  # the import is done here to avoid import loops
-        n_dims, _ = get_dims(list(volume.shape), max_channels=3)
+        n_dims, _ = get_dims(list(volume.shape), max_channels=10)
         volume, aff = edit_volumes.align_volume_to_ref(volume, aff, aff_ref=aff_ref, return_aff=True, n_dims=n_dims)
 
     if im_only:
@@ -475,6 +475,8 @@ def strip_suffix(path):
 
 def mkdir(path_dir):
     """Recursively creates the current dir as well as its parent folders if they do not already exist."""
+    if path_dir[-1] == '/':
+        path_dir = path_dir[:-1]
     if not os.path.isdir(path_dir):
         list_dir_to_create = [path_dir]
         while not os.path.isdir(os.path.dirname(list_dir_to_create[-1])):
