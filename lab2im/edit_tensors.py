@@ -2,8 +2,10 @@
 A lot of them are used in lab2im_model, and we provide them here separately, so they can be re-used easily.
 The functions are classified in three categories:
 1- blurring functions: They contain functions to create blurring tensors and to apply the obtained kernels:
+    -get_std_blurring_mask_for_downsampling
     -blur_tensor
     -get_gaussian_1d_kernels
+    -sample_random_resolution
     -blur_channel
 2- resampling function: function to resample a tensor to a specified resolution.
     -resample_tensor
@@ -16,7 +18,7 @@ label map tensors). It contains:
 """
 
 # python imports
-import math
+import numpy as np
 import tensorflow as tf
 import keras.layers as KL
 import keras.backend as K
@@ -30,6 +32,50 @@ import ext.neuron.layers as nrn_layers
 
 
 # ------------------------------------------------- blurring functions -------------------------------------------------
+
+def get_std_blurring_mask_for_downsampling(downsample_res, current_res, thickness=None):
+    """Compute standard deviations of 1d gaussian masks for image blurring before downsampling.
+    :param downsample_res: resolution to downsample to. Can be a 1d numpy array or list, or a tensor.
+    :param current_res: resolution of the volume before downsampling.
+    Can be a 1d numpy array or list or tensor of the same length as downsample res.
+    :param thickness: slices thickness in each dimension.
+    Can be a 1d numpy array or list of the same length as downsample res.
+    :return: standard deviation of the blurring masks given as as the same type as downsample_res (list or tensor).
+    """
+
+    n_dims = len(current_res)
+
+    if tf.is_tensor(downsample_res):
+
+        if thickness is not None:
+            tmp_down_res = KL.Lambda(lambda x: tf.math.minimum(tf.convert_to_tensor(thickness, dtype='float32'),
+                                                                     x))(downsample_res)
+        else:
+            tmp_down_res = downsample_res
+
+        current_res = KL.Lambda(lambda x: tf.convert_to_tensor(current_res, dtype='float32'))([])
+        sigma = KL.Lambda(lambda x:
+                          tf.where(tf.math.equal(x[0], x[1]), 0.5, 0.75 * x[0] / x[1]))([tmp_down_res, current_res])
+        sigma = KL.Lambda(lambda x: tf.where(tf.math.equal(x[0], 0.), 0., x[1]))([tmp_down_res, sigma])
+
+    else:
+
+        # reformat data resolution at which we blur
+        if thickness is not None:
+            downsample_res = [min(downsample_res[i], thickness[i]) for i in range(n_dims)]
+
+        # build 1d blurring kernels for each direction
+        sigma = [0] * n_dims
+        for i in range(n_dims):
+            # define sigma
+            if downsample_res[i] == 0:
+                sigma[i] = 0
+            elif current_res[i] == downsample_res[i]:
+                sigma[i] = np.float32(0.5)
+            else:
+                sigma[i] = np.float32(0.75 * np.around(downsample_res[i] / current_res[i], 3))
+
+    return sigma
 
 
 def blur_tensor(tensor, list_kernels, n_dims=3):
@@ -68,11 +114,11 @@ def get_gaussian_1d_kernels(sigma, blurring_range=None):
             # build kernel
             if blurring_range is not None:
                 random_coef = KL.Lambda(lambda x: tf.random.uniform((1,), 1 / blurring_range, blurring_range))([])
-                size = int(math.ceil(2.5 * blurring_range * sigma[i]) / 2)
+                size = np.int32(np.ceil(2.5 * blurring_range * sigma[i]) / 2)
                 kernel = KL.Lambda(lambda x: tfp.distributions.Normal(0., x*sigma[i]).prob(tf.range(start=-size,
                                    limit=size + 1, dtype=tf.float32)))(random_coef)
             else:
-                size = int(math.ceil(2.5 * sigma[i]) / 2)
+                size = np.int32(np.ceil(2.5 * sigma[i]) / 2)
                 kernel = KL.Lambda(lambda x: tfp.distributions.Normal(0., sigma[i]).prob(tf.range(start=-size,
                                    limit=size + 1, dtype=tf.float32)))([])
             kernel = KL.Lambda(lambda x: x / tf.reduce_sum(x))(kernel)
@@ -87,6 +133,39 @@ def get_gaussian_1d_kernels(sigma, blurring_range=None):
             kernels_list.append(kernel)
 
     return kernels_list
+
+
+def sample_random_resolution(min_resolution, max_resolution):
+    """This function returns a resolution tensor where all values are identical to the values in min_resolution,
+    except for a single random axis, for which the value is sampled uniformly between the values of the corresponding
+    axis of min_resolution and max_resolution.
+    :param min_resolution: a numpy array with minimum resolution for each axis
+    :param max_resolution: a numpy array (same size as min_resolution) with maximum resolution for each axis.
+    :return: a tensor of shape (len(min_resolution),)
+    examples: if min_resolution = np.array([1. ,1. 1.]) and max_resolution = np.array([5. ,8. 2.]), possible sampled
+    values can be: tf.Tensor([1., 7.5, 1.]), tf.Tensor([1.2., 1., 1.]), tf.Tensor([1., 1., 1.9])
+    """
+
+    # check dimension
+    assert len(min_resolution) == len(max_resolution), \
+        'min and max resolution must have the same length, had {0} and {1}'.format(min_resolution, max_resolution)
+    n_dims = len(min_resolution)
+
+    # initialise random resolution with minimum resolution
+    resolution = KL.Lambda(lambda x: tf.convert_to_tensor(min_resolution, dtype='float32'))([])
+    new_resolution = KL.Lambda(lambda x:
+                               tf.random.uniform(shape=(n_dims,), minval=min_resolution, maxval=max_resolution))([])
+
+    # select dimension
+    dim = KL.Lambda(lambda x: tf.random.uniform(shape=(1, 1), minval=0, maxval=n_dims, dtype='int32'))([])
+    mask = KL.Lambda(lambda x: tf.zeros((3,), dtype='bool'))([])
+    mask = KL.Lambda(lambda x:
+                     tf.tensor_scatter_nd_update(x[0], x[1], tf.convert_to_tensor([True], dtype='bool')))([mask, dim])
+
+    # replace resolution in selected axis
+    new_res = KL.Lambda(lambda x: tf.where(x[0], x[1], x[2]))([mask, new_resolution, resolution])
+
+    return new_res
 
 
 def blur_channel(tensor, mask, kernels_list, n_dims, blur_background=True):
@@ -214,7 +293,7 @@ def reset_label_values_to_zero(label_map, labels_to_reset):
 # ---------------------------------------------------- pad tensors -----------------------------------------------------
 
 def pad_tensor(tensor, padding_shape=None, pad_value=0):
-    """Pad tensor to specified shape.
+    """Pad tensor, around its centre, to specified shape.
     :param tensor: tensor to pad
     :param padding_shape: shape of the returned padded tensor. Can be a list or a numy 1d array, of the same length as
     the numbe of dimensions of the tensor (including batch and channel dimensions).
