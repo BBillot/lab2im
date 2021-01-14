@@ -24,7 +24,6 @@ class ImageGenerator:
                  prior_means=None,
                  prior_stds=None,
                  use_specific_stats_for_channel=False,
-                 blur_background=True,
                  blur_range=1.15):
         """
         This class is wrapper around the lab2im_model model. It contains the GPU model that generates images from labels
@@ -89,9 +88,6 @@ class ImageGenerator:
         only used to generate the i-th channel. If True, n_mod should be equal to n_channels. Default is False.
 
         # blurring parameters
-        :param blur_background: (optional) If True, the background is blurred with the other labels, and can be reset to
-        zero with a probability of 0.2. If False, the background is not blurred (we apply an edge blurring correction),
-        and can be replaced by a low-intensity background with a probability of 0.5.
         :param blur_range: (optional) Randomise the standard deviation of the blurring kernels, (whether data_res is
         given or not). At each mini_batch, the standard deviation of the blurring kernels are multiplied by a c
         oefficient sampled from a uniform distribution with bounds [1/blur_range, blur_range].
@@ -138,7 +134,6 @@ class ImageGenerator:
         self.use_specific_stats_for_channel = use_specific_stats_for_channel
 
         # blurring parameters
-        self.blur_background = blur_background
         self.blur_range = blur_range
 
         # build transformation model
@@ -160,7 +155,6 @@ class ImageGenerator:
                                        target_res=self.target_res,
                                        output_shape=self.output_shape,
                                        output_div_by_n=self.output_div_by_n,
-                                       blur_background=self.blur_background,
                                        blur_range=self.blur_range)
         out_shape = lab_to_im_model.output[0].get_shape().as_list()[1:]
         return lab_to_im_model, out_shape
@@ -201,22 +195,21 @@ class ImageGenerator:
             list_label_maps = []
             list_means = []
             list_stds = []
-            list_affine_transforms = []
 
             for idx in indices:
 
                 # load label in identity space, and add them to inputs
                 y = utils.load_volume(self.labels_paths[idx], dtype='int', aff_ref=np.eye(4))
-                list_label_maps.append(utils.add_axis(y, axis=-2))
+                list_label_maps.append(utils.add_axis(y, axis=[0, -1]))
 
                 # add means and standard deviations to inputs
-                means = np.empty((n_labels, 0))
-                stds = np.empty((n_labels, 0))
+                means = np.empty((1, n_labels, 0))
+                stds = np.empty((1, n_labels, 0))
                 for channel in range(self.n_channels):
 
                     # retrieve channel specific stats if necessary
                     if isinstance(self.prior_means, np.ndarray):
-                        if self.prior_means.shape[0] > 2 & self.use_specific_stats_for_channel:
+                        if (self.prior_means.shape[0] > 2) & self.use_specific_stats_for_channel:
                             if self.prior_means.shape[0] / 2 != self.n_channels:
                                 raise ValueError("the number of blocks in prior_means does not match n_channels. This "
                                                  "message is printed because use_specific_stats_for_channel is True.")
@@ -226,7 +219,7 @@ class ImageGenerator:
                     else:
                         tmp_prior_means = self.prior_means
                     if isinstance(self.prior_stds, np.ndarray):
-                        if self.prior_stds.shape[0] > 2 & self.use_specific_stats_for_channel:
+                        if (self.prior_stds.shape[0] > 2) & self.use_specific_stats_for_channel:
                             if self.prior_stds.shape[0] / 2 != self.n_channels:
                                 raise ValueError("the number of blocks in prior_stds does not match n_channels. This "
                                                  "message is printed because use_specific_stats_for_channel is True.")
@@ -243,28 +236,16 @@ class ImageGenerator:
                     tmp_classes_stds = utils.draw_value_from_distribution(tmp_prior_stds, n_labels,
                                                                           self.prior_distributions, 15., 10.,
                                                                           positive_only=True)
-                    tmp_means = utils.add_axis(tmp_classes_means[self.generation_classes], -1)
-                    tmp_stds = utils.add_axis(tmp_classes_stds[self.generation_classes], -1)
-                    means = np.concatenate([means, tmp_means], axis=1)
-                    stds = np.concatenate([stds, tmp_stds], axis=1)
-                list_means.append(utils.add_axis(means))
-                list_stds.append(utils.add_axis(stds))
-
-                # get affine transformation: rotate, scale, shear (translation done during random cropping)
-                scaling = utils.draw_value_from_distribution(None, size=n_dims, centre=1, default_range=.07)
-                if n_dims == 2:
-                    rotation = utils.draw_value_from_distribution(None, default_range=10.0)
-                else:
-                    rotation = utils.draw_value_from_distribution(None, size=n_dims, default_range=10.0)
-                shearing = utils.draw_value_from_distribution(None, size=n_dims ** 2 - n_dims, default_range=.007)
-                affine_transform = utils.create_affine_transformation_matrix(n_dims, scaling, rotation, shearing)
-                list_affine_transforms.append(utils.add_axis(affine_transform))
+                    tmp_means = utils.add_axis(tmp_classes_means[self.generation_classes], axis=[0, -1])
+                    tmp_stds = utils.add_axis(tmp_classes_stds[self.generation_classes], axis=[0, -1])
+                    means = np.concatenate([means, tmp_means], axis=-1)
+                    stds = np.concatenate([stds, tmp_stds], axis=-1)
+                list_means.append(means)
+                list_stds.append(stds)
 
             # build list of inputs of augmentation model
-            list_inputs = [list_label_maps, list_means, list_stds, list_affine_transforms]
-
-            # concatenate individual input types if batchsize > 1
-            if self.batchsize > 1:
+            list_inputs = [list_label_maps, list_means, list_stds]
+            if self.batchsize > 1:  # concatenate individual input types if batchsize > 1
                 list_inputs = [np.concatenate(item, 0) for item in list_inputs]
             else:
                 list_inputs = [item[0] for item in list_inputs]
