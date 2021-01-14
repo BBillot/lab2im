@@ -10,8 +10,6 @@ Contact: adalca [at] csail [dot] mit [dot] edu
 License: GPLv3
 """
 
-import sys
-
 # third party
 import numpy as np
 import keras.backend as K
@@ -20,6 +18,7 @@ import tensorflow as tf
 
 # local
 from . import utils
+
 
 class CategoricalCrossentropy(object):
     """

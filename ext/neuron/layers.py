@@ -21,7 +21,7 @@ import numpy as np
 import tensorflow as tf
 from keras import backend as K
 from keras.legacy import interfaces
-from keras.layers import Layer, InputLayer, Input
+from keras.layers import Layer
 from keras.engine.topology import Node
 
 # local

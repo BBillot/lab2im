@@ -18,18 +18,10 @@ import collections
 
 import keras
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 import warnings
 from imp import reload
-import ext.pytools.timer as timer
-
-import ext.pynd.ndutils as nd
-import ext.pynd.segutils as su
-
-# the neuron folder should be on the path
-sys.path.append('/home/benjamin/PycharmProjects/hypothalamus_seg/ext/neuron')
-from ext.neuron import plot as nrn_plt
+from ext.pytools import timer
 from ext.neuron import utils as nrn_utils
 
 
@@ -208,7 +200,7 @@ class PlotTestSlices(keras.callbacks.Callback):
         # import neuron sandbox
         # has to be here, can't be at the top, due to cyclical imports (??)
         # TODO: should just pass the function to compute the figures given the model and generator
-        import neuron.sandbox as nrn_sandbox
+        from ext import neuron as nrn_sandbox
         reload(nrn_sandbox)
 
         with timer.Timer('plot callback', self.verbose):
@@ -241,9 +233,10 @@ class PlotTestSlices(keras.callbacks.Callback):
 
 
 class PredictMetrics(keras.callbacks.Callback):
-    """
+    '''
     Compute metrics, like Dice, and save to CSV/log
-    """
+
+    '''
 
     def __init__(self,
                  filepath,
@@ -399,7 +392,7 @@ class ModelCheckpoint(keras.callbacks.Callback):
 
         if mode not in ['auto', 'min', 'max']:
             warnings.warn('ModelCheckpoint mode %s is unknown, '
-                          'fallback to auto mode.' % mode,
+                          'fallback to auto mode.' % (mode),
                           RuntimeWarning)
             mode = 'auto'
 
@@ -447,7 +440,7 @@ class ModelCheckpoint(keras.callbacks.Callback):
                     current = logs.get(self.monitor)
                     if current is None:
                         warnings.warn('Can save best model only with %s available, '
-                                      'skipping.' % self.monitor, RuntimeWarning)
+                                      'skipping.' % (self.monitor), RuntimeWarning)
                     else:
                         if self.monitor_op(current, self.best):
                             if self.verbose > 0:
@@ -571,7 +564,7 @@ class ModelCheckpointParallel(keras.callbacks.Callback):
                     current = logs.get(self.monitor)
                     if current is None:
                         warnings.warn('Can save best model only with %s available, '
-                                      'skipping.' % self.monitor, RuntimeWarning)
+                                    'skipping.' % (self.monitor), RuntimeWarning)
                     else:
                         if self.monitor_op(current, self.best):
                             if self.verbose > 0:
@@ -597,6 +590,7 @@ class ModelCheckpointParallel(keras.callbacks.Callback):
                         self.model.layers[-(num_outputs+1)].save(filepath, overwrite=True)
 
 
+
 ##################################################################################################
 # helper functions
 ##################################################################################################
@@ -618,7 +612,7 @@ def _generate_predictions(model, data_generator, batch_size, nb_samples, vol_par
     else:
         for _ in range(nb_samples):  # assumes nr batches
             vol_pred, vol_true = nrn_utils.next_label(model, data_generator)
-            yield vol_true, vol_pred
+            yield (vol_true, vol_pred)
 
 
 def _flatten(l):

@@ -10,7 +10,6 @@ import six
 import nibabel as nib
 import numpy as np
 import scipy.ndimage.interpolation
-from tqdm import tqdm_notebook as tqdm # for verbosity for forloops
 from PIL import Image
 import matplotlib.pyplot as plt
 
@@ -20,9 +19,6 @@ try:
     from tqdm import tqdm_notebook as tqdm
 except:
     from tqdm import tqdm as tqdm
-
-from subprocess import call
-
 
 # import local ndutils
 import ext.pynd.ndutils as nd

@@ -24,11 +24,8 @@ import numpy as np
 from tqdm import tqdm_notebook as tqdm
 from pprint import pformat
 
-import ext.pytools.patchlib as pl
-import ext.pytools.timer as timer
-
-# local imports
-import ext.pynd.ndutils as nd
+from ext.pytools import timer
+from ext.pytools import patchlib as pl
 
 # often changed file
 from imp import reload
@@ -206,7 +203,7 @@ def affine_to_shift(affine_matrix, volshape, shift_center=True, indexing='ij'):
         shift field (Tensor) of size *volshape x N
     """
 
-    if isinstance(volshape, (tf.Dimension, tf.TensorShape)):
+    if isinstance(volshape, tf.TensorShape):
         volshape = volshape.as_list()
 
     if affine_matrix.dtype != 'float32':

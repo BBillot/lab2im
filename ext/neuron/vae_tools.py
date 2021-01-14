@@ -11,15 +11,14 @@ import matplotlib.pyplot as plt
 from keras import backend as K
 from tqdm import tqdm as tqdm
 from keras import layers as KL
-from sklearn import decomposition
 from sklearn.decomposition import PCA
 from keras.utils import plot_model
-from IPython.display import display, Image
+from IPython.display import Image
 
 
 # project imports
-from . import utils as nrn_utils
-from . import plot as nrn_plt
+from ext import neuron as nrn_plt
+from ext.neuron import utils as nrn_utils
 
 
 def extract_z_dec(model, sample_layer_name, vis=False, wt_chk=False):
