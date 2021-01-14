@@ -119,17 +119,3 @@ def seg_overlay(vol, seg, do_rgb=True, seg_wt=0.5, cmap=None):
         olap = seg * seg_wt + vol * (1-seg_wt)
 
     return olap
-
-
-if __name__ == '__main__':
-
-    from lab2im.utils import load_volume, save_volume
-
-    path_seg = '/home/benjamin/PycharmProjects/hippocampus_seg/models/flair/net_segmentations/ADNI_002_S_0295_Axial_T2-FLAIR_S110475_I238624.isotropic_seg.nii.gz'
-    path_overlap = '/home/benjamin/Pictures/images/hippocampus/figure_suppl_materials/flair/PV_countours.nii.gz'
-
-    seg, aff, h = load_volume(path_seg, im_only=False)
-    countour = seg2contour(seg, thickness=1)
-
-    save_volume(countour, aff, h, path_overlap)
-
