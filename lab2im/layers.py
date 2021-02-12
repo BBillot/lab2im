@@ -57,7 +57,7 @@ class RandomSpatialDeformation(Layer):
     :param enable_90_rotations: (optional) wheter to rotate the input by a random angle chosen in {0, 90, 180, 270}.
     This is done regardless of the value of rotation_bounds. If true, a different value is sampled for each dimension.
     :param nonlin_std: (optional) maximum value of the standard deviation of the normal distribution from which we
-    sample the small-size SVF. Set to False if you wish to completely turn the elastic deformation off.
+    sample the small-size SVF. Set to 0 if you wish to completely turn the elastic deformation off.
     :param nonlin_shape_factor: (optional) if nonlin_std is not False, factor between the shapes of the input tensor
     and the shape of the input non-linear tensor.
     :param inter_method: (optional) interpolation method when deforming the input tensor. Can be 'linear', or 'nearest'
@@ -98,6 +98,18 @@ class RandomSpatialDeformation(Layer):
 
         super(RandomSpatialDeformation, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config()
+        config["scaling_bounds"] = self.scaling_bounds
+        config["rotation_bounds"] = self.rotation_bounds
+        config["shearing_bounds"] = self.shearing_bounds
+        config["translation_bounds"] = self.translation_bounds
+        config["enable_90_rotations"] = self.enable_90_rotations
+        config["nonlin_std"] = self.nonlin_std
+        config["nonlin_shape_factor"] = self.nonlin_shape_factor
+        config["inter_method"] = self.inter_method
+        return config
+
     def build(self, input_shape):
 
         if not isinstance(input_shape, list):
@@ -112,7 +124,7 @@ class RandomSpatialDeformation(Layer):
         self.apply_affine_trans = (self.scaling_bounds is not False) | (self.rotation_bounds is not False) | \
                                   (self.shearing_bounds is not False) | (self.translation_bounds is not False) | \
                                   self.enable_90_rotations
-        self.apply_elastic_trans = (self.nonlin_std is not False)
+        self.apply_elastic_trans = self.nonlin_std > 0
         assert (self.apply_affine_trans is not None) | self.apply_elastic_trans, \
             'affine_trans or elastic_trans should be provided'
 
@@ -140,7 +152,13 @@ class RandomSpatialDeformation(Layer):
 
         # add affine deformation to inputs list
         if self.apply_affine_trans:
-            affine_trans = self._sample_affine_transform(batchsize=batchsize)
+            affine_trans = utils.sample_affine_transform(batchsize,
+                                                         self.n_dims,
+                                                         self.rotation_bounds,
+                                                         self.scaling_bounds,
+                                                         self.shearing_bounds,
+                                                         self.translation_bounds,
+                                                         self.enable_90_rotations)
             list_trans.append(affine_trans)
 
         # prepare non-linear deformation field and add it to inputs list
@@ -161,141 +179,6 @@ class RandomSpatialDeformation(Layer):
         # apply deformations and return tensors with correct dtype
         inputs = [nrn_layers.SpatialTransformer(m)([v] + list_trans) for (m, v) in zip(self.inter_method, inputs)]
         return [tf.cast(v, t) for (t, v) in zip(types, inputs)]
-
-    def _sample_affine_transform(self, batchsize):
-        """build 4x4 matrix representing an affine transormation in homogeneous coordinates"""
-
-        if (self.rotation_bounds is not False) | (self.enable_90_rotations is not False):
-            if self.n_dims == 2:
-                if self.rotation_bounds is not False:
-                    rotation = utils.draw_value_from_distribution(self.rotation_bounds,
-                                                                  size=1,
-                                                                  default_range=15.0,
-                                                                  return_as_tensor=True,
-                                                                  batchsize=batchsize)
-                else:
-                    rotation = tf.zeros(tf.concat([batchsize, tf.ones(1, dtype='int32')], axis=0))
-            else:  # n_dims = 3
-                if self.rotation_bounds is not False:
-                    rotation = utils.draw_value_from_distribution(self.rotation_bounds,
-                                                                  size=self.n_dims,
-                                                                  default_range=15.0,
-                                                                  return_as_tensor=True,
-                                                                  batchsize=batchsize)
-                else:
-                    rotation = tf.zeros(tf.concat([batchsize, 3 * tf.ones(1, dtype='int32')], axis=0))
-            if self.enable_90_rotations:
-                rotation = tf.cast(tf.random.uniform(tf.shape(rotation), maxval=4, dtype='int32') * 90, 'float32') \
-                           + rotation
-            T_rot = self._create_rotation_transform(rotation, self.n_dims)
-        else:
-            T_rot = tf.tile(tf.expand_dims(tf.eye(self.n_dims), axis=0),
-                            tf.concat([batchsize, tf.ones(2, dtype='int32')], axis=0))
-
-        if self.shearing_bounds is not False:
-            shearing = utils.draw_value_from_distribution(self.shearing_bounds,
-                                                          size=self.n_dims ** 2 - self.n_dims,
-                                                          default_range=.01,
-                                                          return_as_tensor=True,
-                                                          batchsize=batchsize)
-            T_shearing = self._create_shearing_transform(shearing, self.n_dims)
-        else:
-            T_shearing = tf.tile(tf.expand_dims(tf.eye(self.n_dims), axis=0),
-                                 tf.concat([batchsize, tf.ones(2, dtype='int32')], axis=0))
-
-        if self.scaling_bounds is not False:
-            scaling = utils.draw_value_from_distribution(self.scaling_bounds,
-                                                         size=self.n_dims,
-                                                         centre=1,
-                                                         default_range=.15,
-                                                         return_as_tensor=True,
-                                                         batchsize=batchsize)
-            T_scaling = tf.linalg.diag(scaling)
-        else:
-            T_scaling = tf.tile(tf.expand_dims(tf.eye(self.n_dims), axis=0),
-                                tf.concat([batchsize, tf.ones(2, dtype='int32')], axis=0))
-
-        T = tf.matmul(T_scaling, tf.matmul(T_shearing, T_rot))
-
-        if self.translation_bounds is not False:
-            translation = utils.draw_value_from_distribution(self.translation_bounds,
-                                                             size=self.n_dims,
-                                                             default_range=5,
-                                                             return_as_tensor=True,
-                                                             batchsize=batchsize)
-            T = tf.concat([T, tf.expand_dims(translation, axis=-1)], axis=-1)
-        else:
-            T = tf.concat([T, tf.zeros(tf.concat([tf.shape(T)[:2], tf.ones(1, dtype='int32')], 0))], axis=-1)
-
-        # build rigid transform
-        T_last_row = tf.expand_dims(tf.concat([tf.zeros((1, self.n_dims)), tf.ones((1, 1))], axis=1), 0)
-        T_last_row = tf.tile(T_last_row, tf.concat([batchsize, tf.ones(2, dtype='int32')], axis=0))
-        T = tf.concat([T, T_last_row], axis=1)
-
-        return T
-
-    @staticmethod
-    def _create_rotation_transform(rotation, n_dims):
-        """build rotation transform from 3d or 2d rotation coefficients. Angles are given in degrees."""
-        rotation = rotation * np.pi / 180
-        if n_dims == 3:
-            shape = tf.shape(tf.expand_dims(rotation[..., 0], -1))
-
-            Rx_row0 = tf.expand_dims(tf.tile(tf.expand_dims(tf.convert_to_tensor([1., 0., 0.]), 0), shape), axis=1)
-            Rx_row1 = tf.stack([tf.zeros(shape), tf.expand_dims(tf.cos(rotation[..., 0]), -1),
-                                tf.expand_dims(-tf.sin(rotation[..., 0]), -1)], axis=-1)
-            Rx_row2 = tf.stack([tf.zeros(shape), tf.expand_dims(tf.sin(rotation[..., 0]), -1),
-                                tf.expand_dims(tf.cos(rotation[..., 0]), -1)], axis=-1)
-            Rx = tf.concat([Rx_row0, Rx_row1, Rx_row2], axis=1)
-
-            Ry_row0 = tf.stack([tf.expand_dims(tf.cos(rotation[..., 1]), -1), tf.zeros(shape),
-                                tf.expand_dims(tf.sin(rotation[..., 1]), -1)], axis=-1)
-            Ry_row1 = tf.expand_dims(tf.tile(tf.expand_dims(tf.convert_to_tensor([0., 1., 0.]), 0), shape), axis=1)
-            Ry_row2 = tf.stack([tf.expand_dims(-tf.sin(rotation[..., 1]), -1), tf.zeros(shape),
-                                tf.expand_dims(tf.cos(rotation[..., 1]), -1)], axis=-1)
-            Ry = tf.concat([Ry_row0, Ry_row1, Ry_row2], axis=1)
-
-            Rz_row0 = tf.stack([tf.expand_dims(tf.cos(rotation[..., 2]), -1),
-                                tf.expand_dims(-tf.sin(rotation[..., 2]), -1), tf.zeros(shape)], axis=-1)
-            Rz_row1 = tf.stack([tf.expand_dims(tf.sin(rotation[..., 2]), -1),
-                                tf.expand_dims(tf.cos(rotation[..., 2]), -1), tf.zeros(shape)], axis=-1)
-            Rz_row2 = tf.expand_dims(tf.tile(tf.expand_dims(tf.convert_to_tensor([0., 0., 1.]), 0), shape), axis=1)
-            Rz = tf.concat([Rz_row0, Rz_row1, Rz_row2], axis=1)
-
-            T_rot = tf.matmul(tf.matmul(Rx, Ry), Rz)
-
-        elif n_dims == 2:
-            R_row0 = tf.stack([tf.expand_dims(tf.cos(rotation[..., 0]), -1),
-                               tf.expand_dims(tf.sin(rotation[..., 0]), -1)], axis=-1)
-            R_row1 = tf.stack([tf.expand_dims(-tf.sin(rotation[..., 0]), -1),
-                               tf.expand_dims(tf.cos(rotation[..., 0]), -1)], axis=-1)
-            T_rot = tf.concat([R_row0, R_row1], axis=1)
-
-        else:
-            raise Exception('only supports 2 or 3D.')
-
-        return T_rot
-
-    @staticmethod
-    def _create_shearing_transform(shearing, n_dims):
-        """build shearing transform from 2d/3d shearing coefficients"""
-        shape = tf.shape(tf.expand_dims(shearing[..., 0], -1))
-        if n_dims == 3:
-            shearing_row0 = tf.stack([tf.ones(shape), tf.expand_dims(shearing[..., 0], -1),
-                                      tf.expand_dims(shearing[..., 1], -1)], axis=-1)
-            shearing_row1 = tf.stack([tf.expand_dims(shearing[..., 2], -1), tf.ones(shape),
-                                      tf.expand_dims(shearing[..., 3], -1)], axis=-1)
-            shearing_row2 = tf.stack([tf.expand_dims(shearing[..., 4], -1), tf.expand_dims(shearing[..., 5], -1),
-                                      tf.ones(shape)], axis=-1)
-            T_shearing = tf.concat([shearing_row0, shearing_row1, shearing_row2], axis=1)
-
-        elif n_dims == 2:
-            shearing_row0 = tf.stack([tf.ones(shape), tf.expand_dims(shearing[..., 0], -1)], axis=-1)
-            shearing_row1 = tf.stack([tf.expand_dims(shearing[..., 1], -1), tf.ones(shape)], axis=-1)
-            T_shearing = tf.concat([shearing_row0, shearing_row1], axis=1)
-        else:
-            raise Exception('only supports 2 or 3D.')
-        return T_shearing
 
 
 class RandomCrop(Layer):
@@ -319,6 +202,11 @@ class RandomCrop(Layer):
         self.n_dims = len(crop_shape)
         self.list_n_channels = None
         super(RandomCrop, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        config["crop_shape"] = self.crop_shape
+        return config
 
     def build(self, input_shape):
 
@@ -421,6 +309,14 @@ class RandomFlip(Layer):
         self.swapped_label_list = None
 
         super(RandomFlip, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        config["flip_axis"] = self.flip_axis
+        config["swap_labels"] = self.swap_labels
+        config["label_list"] = self.label_list
+        config["n_neutral_labels"] = self.n_neutral_labels
+        return config
 
     def build(self, input_shape):
 
@@ -548,6 +444,14 @@ class SampleResolution(Layer):
         self.min_res_tens = None
         super(SampleResolution, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config()
+        config["min_resolution"] = self.min_res
+        config["max_resolution"] = self.max_res
+        config["prob_min"] = self.prob_min
+        config["return_thickness"] = self.return_thickness
+        return config
+
     def build(self, input_shape):
 
         # check dimension
@@ -648,6 +552,13 @@ class GaussianBlur(Layer):
         self.convnd = None
         super().__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config()
+        config["sigma"] = self.sigma
+        config["random_blur_range"] = self.blur_range
+        config["use_mask"] = self.use_mask
+        return config
+
     def build(self, input_shape):
 
         # get shapes
@@ -732,6 +643,12 @@ class DynamicGaussianBlur(Layer):
         self.blur_range = random_blur_range
         self.separable = None
         super().__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        config["max_sigma"] = self.max_sigma
+        config["random_blur_range"] = self.blur_range
+        return config
 
     def build(self, input_shape):
         assert len(input_shape) == 2, 'sigma should be provided as an input tensor for dynamic blurring'
@@ -820,12 +737,20 @@ class MimicAcquisition(Layer):
 
         super(MimicAcquisition, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config()
+        config["volume_res"] = self.volume_res
+        config["min_subsample_res"] = self.min_subsample_res
+        config["resample_shape"] = self.resample_shape
+        config["build_dist_map"] = self.build_dist_map
+        return config
+
     def build(self, input_shape):
 
         # set up input shape and acquisistion shape
         self.inshape = input_shape[0][1:]
         self.add_batchsize = False if (input_shape[1][0] is None) else True
-        down_tensor_shape = np.int32(self.inshape[:-1] * self.volume_res / self.min_subsample_res)
+        down_tensor_shape = np.int32(np.array(self.inshape[:-1]) * self.volume_res / self.min_subsample_res)
 
         # build interpolation meshgrids
         self.down_grid = tf.expand_dims(tf.stack(nrn_utils.volshape_to_ndgrid(down_tensor_shape), -1), axis=0)
@@ -847,8 +772,8 @@ class MimicAcquisition(Layer):
         # get downsampling and upsampling factors
         if self.add_batchsize:
             subsample_res = tf.tile(tf.expand_dims(subsample_res, 0), tile_shape)
-        down_shape = tf.cast(tf.convert_to_tensor(self.inshape[:-1]*self.volume_res, dtype='float32') / subsample_res,
-                             dtype='int32')
+        down_shape = tf.cast(tf.convert_to_tensor(np.array(self.inshape[:-1]) * self.volume_res, dtype='float32') /
+                             subsample_res, dtype='int32')
         down_zoom_factor = tf.cast(down_shape / tf.convert_to_tensor(self.inshape[:-1]), dtype='float32')
         up_zoom_factor = tf.cast(tf.convert_to_tensor(self.resample_shape, dtype='int32') / down_shape, dtype='float32')
 
@@ -914,7 +839,7 @@ class BiasFieldCorruption(Layer):
     :param same_bias_for_all_channels: whether to apply the same bias field to all the channels of the input tensor.
     """
 
-    def __init__(self, bias_field_std=.3, bias_shape_factor=.025, same_bias_for_all_channels=False, **kwargs):
+    def __init__(self, bias_field_std=.5, bias_shape_factor=.025, same_bias_for_all_channels=False, **kwargs):
 
         # input shape
         self.several_inputs = False
@@ -932,6 +857,13 @@ class BiasFieldCorruption(Layer):
         self.same_bias_for_all_channels = same_bias_for_all_channels
 
         super(BiasFieldCorruption, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        config["bias_field_std"] = self.bias_field_std
+        config["bias_shape_factor"] = self.bias_shape_factor
+        config["same_bias_for_all_channels"] = self.same_bias_for_all_channels
+        return config
 
     def build(self, input_shape):
 
@@ -1012,6 +944,16 @@ class IntensityAugmentation(Layer):
         self.separate_channels = separate_channels
 
         super(IntensityAugmentation, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        config["noise_std"] = self.noise_std
+        config["clip"] = self.clip
+        config["normalise"] = self.normalise
+        config["norm_perc"] = self.norm_perc
+        config["gamma_std"] = self.gamma_std
+        config["separate_channels"] = self.separate_channels
+        return config
 
     def build(self, input_shape):
         self.n_dims = len(input_shape) - 2
@@ -1129,6 +1071,12 @@ class WeightedL2Loss(Layer):
         self.n_labels = None
         super(WeightedL2Loss, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config()
+        config["target_value"] = self.target_value
+        config["background_weight"] = self.background_weight
+        return config
+
     def build(self, input_shape):
         assert len(input_shape) == 2, 'DiceLoss expects 2 inputs to compute the Dice loss.'
         assert input_shape[0] == input_shape[1], 'the two inputs must have the same shape.'
@@ -1165,16 +1113,22 @@ class ResetValuesToZero(Layer):
     def __init__(self, values, **kwargs):
         assert values is not None, 'please provide correct list of values, received None'
         self.values = utils.reformat_to_list(values)
+        self.values_tens = None
         self.n_values = len(values)
         super(ResetValuesToZero, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config()
+        config["values"] = self.values
+        return config
+
     def build(self, input_shape):
-        self.values = tf.convert_to_tensor(self.values)
+        self.values_tens = tf.convert_to_tensor(self.values)
         self.built = True
         super(ResetValuesToZero, self).build(input_shape)
 
     def call(self, inputs, **kwargs):
-        values = tf.cast(self.values, dtype=inputs.dtype)
+        values = tf.cast(self.values_tens, dtype=inputs.dtype)
         for i in range(self.n_values):
             inputs = tf.where(tf.equal(inputs, values[i]), tf.zeros_like(inputs), inputs)
         return inputs
@@ -1190,10 +1144,17 @@ class PadAroundCentre(Layer):
 
     def __init__(self, pad_shape, value=0, **kwargs):
         self.pad_shape = pad_shape
+        self.pad_shape_tens = None
         self.value = value
         self.n_dims = None
         self.pad_margins = None
         super(PadAroundCentre, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        config["pad_shape"] = self.pad_shape
+        config["value"] = self.value
+        return config
 
     def build(self, input_shape):
         # input shape
@@ -1203,13 +1164,13 @@ class PadAroundCentre(Layer):
         tensor_shape = tf.cast(tf.convert_to_tensor(input_shape), 'int32')
 
         # pad shape
-        self.pad_shape = np.array([0] + utils.reformat_to_list(self.pad_shape, length=self.n_dims) + [0])
-        self.pad_shape = tf.cast(tf.convert_to_tensor(self.pad_shape), 'int32')
-        self.pad_shape = tf.math.maximum(tensor_shape, self.pad_shape)
+        self.pad_shape_tens = np.array([0] + utils.reformat_to_list(self.pad_shape, length=self.n_dims) + [0])
+        self.pad_shape_tens = tf.cast(tf.convert_to_tensor(self.pad_shape_tens), 'int32')
+        self.pad_shape_tens = tf.math.maximum(tensor_shape, self.pad_shape_tens)
 
         # padding margin
-        min_margins = (self.pad_shape - tensor_shape) / 2
-        max_margins = self.pad_shape - tensor_shape - min_margins
+        min_margins = (self.pad_shape_tens - tensor_shape) / 2
+        max_margins = self.pad_shape_tens - tensor_shape - min_margins
         self.pad_margins = tf.stack([min_margins, max_margins], axis=-1)
 
         self.built = True
@@ -1264,6 +1225,12 @@ class MaskEdges(Layer):
         self.boundaries = utils.reformat_to_n_channels_array(boundaries, n_dims=4, n_channels=len(self.axes))
         self.inputshape = None
         super(MaskEdges, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        config["axes"] = self.axes
+        config["boundaries"] = self.boundaries
+        return config
 
     def build(self, input_shape):
         self.inputshape = input_shape

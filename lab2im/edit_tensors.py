@@ -25,8 +25,7 @@ def blurring_sigma_for_downsampling(current_res, downsample_res, mult_coef=None,
     :param downsample_res: resolution to downsample to. Can be a 1d numpy array or list, or a tensor.
     :param current_res: resolution of the volume before downsampling.
     Can be a 1d numpy array or list or tensor of the same length as downsample res.
-    :param thickness: (optional) slices thickness in each dimension.
-    Can be a 1d numpy array or list of the same length as downsample res.
+    :param thickness: (optional) slice thickness in each dimension. Must be the same type as downsample_res.
     :return: standard deviation of the blurring masks given as as the same type as downsample_res (list or tensor).
     """
 
@@ -50,19 +49,17 @@ def blurring_sigma_for_downsampling(current_res, downsample_res, mult_coef=None,
 
         # reformat data resolution at which we blur
         if thickness is not None:
-            tmp_down_res = KL.Lambda(lambda x: tf.math.minimum(tf.convert_to_tensor(thickness, dtype='float32'),
-                                                                     x))(downsample_res)
+            down_res = KL.Lambda(lambda x: tf.math.minimum(x[0], x[1]))([downsample_res, thickness])
         else:
-            tmp_down_res = downsample_res
+            down_res = downsample_res
 
         # get std deviation for blurring kernels
-        current_res = KL.Lambda(lambda x: tf.convert_to_tensor(current_res, dtype='float32'))([])
         if mult_coef is None:
-            sigma = KL.Lambda(lambda x:
-                              tf.where(tf.math.equal(x[0], x[1]), 0.5, 0.75 * x[0] / x[1]))([tmp_down_res, current_res])
+            sigma = KL.Lambda(lambda x: tf.where(tf.math.equal(x, tf.convert_to_tensor(current_res, dtype='float32')),
+                              0.5, 0.75 * x / tf.convert_to_tensor(current_res, dtype='float32')))(down_res)
         else:
-            sigma = KL.Lambda(lambda x: mult_coef * x[0] / x[1])([tmp_down_res, current_res])
-        sigma = KL.Lambda(lambda x: tf.where(tf.math.equal(x[0], 0.), 0., x[1]))([tmp_down_res, sigma])
+            sigma = KL.Lambda(lambda x: mult_coef * x / tf.convert_to_tensor(current_res, dtype='float32'))(down_res)
+        sigma = KL.Lambda(lambda x: tf.where(tf.math.equal(x[0], 0.), 0., x[1]))([down_res, sigma])
 
     return sigma
 
@@ -79,7 +76,7 @@ def gaussian_kernel(sigma, max_sigma=None, blur_range=None, separable=True):
     """
     # convert sigma into a tensor
     if not tf.is_tensor(sigma):
-        sigma_tens = KL.Lambda(lambda x: tf.convert_to_tensor(utils.reformat_to_list(sigma), dtype='float32'))([])
+        sigma_tens = tf.convert_to_tensor(utils.reformat_to_list(sigma), dtype='float32')
     else:
         assert max_sigma is not None, 'max_sigma must be provided when sigma is given as a tensor'
         sigma_tens = sigma
@@ -100,7 +97,7 @@ def gaussian_kernel(sigma, max_sigma=None, blur_range=None, separable=True):
         max_sigma = np.array(utils.reformat_to_list(sigma, length=n_dims))
 
     # randomise the burring std dev and/or split it between dimensions
-    if blur_range is not None:
+    if (blur_range is not None) | (blur_range != 1):
         sigma_tens = sigma_tens * tf.random.uniform(tf.shape(sigma_tens), minval=1 / blur_range, maxval=blur_range)
 
     # get size of blurring kernels
@@ -153,8 +150,9 @@ def gaussian_kernel(sigma, max_sigma=None, blur_range=None, separable=True):
                 sigma_tens = tf.expand_dims(sigma_tens, axis=0)
 
         # compute gaussians
-        exp_term = -K.square(diff) / (2 * sigma_tens**2)
-        norms = exp_term - tf.math.log(np.sqrt(2 * np.pi) * sigma_tens)
+        sigma_is_0 = tf.equal(sigma_tens, 0)
+        exp_term = -K.square(diff) / (2 * tf.where(sigma_is_0, tf.ones_like(sigma_tens), sigma_tens)**2)
+        norms = exp_term - tf.math.log(tf.where(sigma_is_0, tf.ones_like(sigma_tens), np.sqrt(2 * np.pi) * sigma_tens))
         kernels = K.sum(norms, -1)
         kernels = tf.exp(kernels)
         kernels /= tf.reduce_sum(kernels)
