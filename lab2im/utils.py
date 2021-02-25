@@ -92,7 +92,7 @@ def load_volume(path_volume, im_only=True, squeeze=True, dtype=None, aff_ref=Non
     if aff_ref is not None:
         from . import edit_volumes  # the import is done here to avoid import loops
         n_dims, _ = get_dims(list(volume.shape), max_channels=10)
-        volume, aff = edit_volumes.align_volume_to_ref(volume, aff, aff_ref=aff_ref, return_aff=True, n_dims=n_dims)
+        volume, aff = edit_volumes.align_volume_to_ref(volume, aff, aff_ref=aff_ref, return_aff=True)
 
     if im_only:
         return volume
@@ -165,7 +165,7 @@ def get_volume_info(path_volume, return_volume=False, aff_ref=None):
         from . import edit_volumes  # the import is done here to avoid import loops
         ras_axes = edit_volumes.get_ras_axes(aff, n_dims=n_dims)
         ras_axes_ref = edit_volumes.get_ras_axes(aff_ref, n_dims=n_dims)
-        im = edit_volumes.align_volume_to_ref(im, aff, aff_ref=aff_ref, n_dims=n_dims)
+        im = edit_volumes.align_volume_to_ref(im, aff, aff_ref=aff_ref)
         im_shape = np.array(im_shape)
         data_res = np.array(data_res)
         im_shape[ras_axes_ref] = im_shape[ras_axes]
@@ -462,13 +462,6 @@ def strip_extension(path):
 
 def strip_suffix(path):
     """Strip classical image suffix from a filename."""
-    path = path.replace('_seg', '')
-    path = path.replace('.seg', '')
-    path = path.replace('seg', '')
-    path = path.replace('_seg_1', '')
-    path = path.replace('_seg_2', '')
-    path = path.replace('seg_1_', '')
-    path = path.replace('seg_2_', '')
     path = path.replace('_aseg', '')
     path = path.replace('aseg', '')
     path = path.replace('.aseg', '')
@@ -486,6 +479,13 @@ def strip_suffix(path):
     path = path.replace('GSP_FS_4p5', 'GSP')
     path = path.replace('.nii_crispSegmentation', '')
     path = path.replace('_crispSegmentation', '')
+    path = path.replace('_seg', '')
+    path = path.replace('.seg', '')
+    path = path.replace('seg', '')
+    path = path.replace('_seg_1', '')
+    path = path.replace('_seg_2', '')
+    path = path.replace('seg_1_', '')
+    path = path.replace('seg_2_', '')
     return path
 
 
@@ -499,6 +499,10 @@ def mkdir(path_dir):
             list_dir_to_create.append(os.path.dirname(list_dir_to_create[-1]))
         for dir_to_create in reversed(list_dir_to_create):
             os.mkdir(dir_to_create)
+
+
+def mkcmd(*args):
+    return ' '.join([str(arg) for arg in args])
 
 
 # ---------------------------------------------- shape-related functions -----------------------------------------------
