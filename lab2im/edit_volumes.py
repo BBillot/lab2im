@@ -9,6 +9,7 @@ These functions are sorted in five categories:
         -pad_volume
         -flip_volume
         -resample_volume
+        -resample_volume_like
         -get_ras_axes
         -align_volume_to_ref
         -blur_volume
@@ -112,7 +113,6 @@ def mask_volume(volume, mask=None, threshold=0.1, dilate=0, erode=0, fill_holes=
     if erode > 0:
         erode_struct = utils.build_binary_structure(erode, n_dims)
         mask_to_apply = binary_erosion(mask_to_apply, erode_struct)
-    mask_to_apply = mask | mask_to_apply
     if fill_holes:
         mask_to_apply = binary_fill_holes(mask_to_apply)
 
@@ -306,7 +306,7 @@ def crop_volume_with_idx(volume, crop_idx, aff=None, n_dims=None):
         return new_volume
 
 
-def pad_volume(volume, padding_shape, padding_value=0, aff=None):
+def pad_volume(volume, padding_shape, padding_value=0, aff=None, return_pad_idx=False):
     """Pad volume to a given shape
     :param volume: volume to be padded
     :param padding_shape: shape to pad volume to. Can be a number, a sequence or a 1d numpy array.
@@ -321,25 +321,36 @@ def pad_volume(volume, padding_shape, padding_value=0, aff=None):
     n_dims, n_channels = utils.get_dims(vol_shape)
     padding_shape = utils.reformat_to_list(padding_shape, length=n_dims, dtype='int')
 
-    # get padding margins
-    min_pad_margins = np.maximum(np.int32(np.floor((np.array(padding_shape) - np.array(vol_shape)[:n_dims]) / 2)), 0)
-    max_pad_margins = np.maximum(np.int32(np.ceil((np.array(padding_shape) - np.array(vol_shape)[:n_dims]) / 2)), 0)
-    if (min_pad_margins == 0).all():
-        return new_volume
-    pad_margins = tuple([(min_pad_margins[i], max_pad_margins[i]) for i in range(n_dims)])
-    if n_channels > 1:
-        pad_margins = tuple(list(pad_margins) + [[0, 0]])
+    # check if need to pad
+    if not np.array_equal(np.array(padding_shape, dtype='int32'), np.array(vol_shape[:n_dims], dtype='int32')):
 
-    # pad volume
-    new_volume = np.pad(new_volume, pad_margins, mode='constant', constant_values=padding_value)
+        # get padding margins
+        min_margins = np.maximum(np.int32(np.floor((np.array(padding_shape) - np.array(vol_shape)[:n_dims]) / 2)), 0)
+        max_margins = np.minimum(np.int32(np.ceil((np.array(padding_shape) - np.array(vol_shape)[:n_dims]) / 2)),
+                                 np.array(vol_shape)[:n_dims])
+        pad_idx = np.concatenate([min_margins, min_margins + np.array(vol_shape)])
+        pad_margins = tuple([(min_margins[i], max_margins[i]) for i in range(n_dims)])
+        if n_channels > 1:
+            pad_margins = tuple(list(pad_margins) + [[0, 0]])
 
-    if aff is not None:
-        if n_dims == 2:
-            min_pad_margins = np.append(min_pad_margins, 0)
-        aff[:-1, -1] = aff[:-1, -1] - aff[:-1, :-1] @ min_pad_margins
-        return new_volume, aff
+        # pad volume
+        new_volume = np.pad(new_volume, pad_margins, mode='constant', constant_values=padding_value)
+
+        if aff is not None:
+            if n_dims == 2:
+                min_margins = np.append(min_margins, 0)
+            aff[:-1, -1] = aff[:-1, -1] - aff[:-1, :-1] @ min_margins
+
     else:
-        return new_volume
+        pad_idx = np.concatenate([np.array([0] * n_dims), np.array(vol_shape)])
+
+    # sort outputs
+    output = [new_volume]
+    if aff is not None:
+        output.append(aff)
+    if return_pad_idx:
+        output.append(pad_idx)
+    return output[0] if len(output) == 1 else tuple(output)
 
 
 def flip_volume(volume, axis=None, direction=None, aff=None):
@@ -419,6 +430,40 @@ def resample_volume(volume, aff, new_vox_size):
     aff2[:-1, -1] = aff2[:-1, -1] - np.matmul(aff2[:-1, :-1], 0.5 * (factor - 1))
 
     return volume2, aff2
+
+
+def resample_volume_like(vol_ref, aff_ref, vol_flo, aff_flo):
+    """This function reslices a floating image to the space of a reference image
+    :param vol_ref: a numpy array with the reference volume
+    :param aff_ref: affine matrix of the reference volume
+    :param vol_flo: a numpy array with the floating volume
+    :param aff_flo: affine matrix of the floating volume
+    :return: resliced volume
+    """
+
+    T = np.matmul(np.linalg.inv(aff_flo), aff_ref)
+
+    xf = np.arange(0, vol_flo.shape[0])
+    yf = np.arange(0, vol_flo.shape[1])
+    zf = np.arange(0, vol_flo.shape[2])
+
+    my_interpolating_function = RegularGridInterpolator((xf, yf, zf), vol_flo, bounds_error=False, fill_value=0.0)
+
+    xr = np.arange(0, vol_ref.shape[0])
+    yr = np.arange(0, vol_ref.shape[1])
+    zr = np.arange(0, vol_ref.shape[2])
+
+    xrg, yrg, zrg = np.meshgrid(xr, yr, zr, indexing='ij', sparse=False)
+    n = xrg.size
+    xrg = xrg.reshape([n])
+    yrg = yrg.reshape([n])
+    zrg = zrg.reshape([n])
+    bottom = np.ones_like(xrg)
+    coords = np.stack([xrg, yrg, zrg, bottom])
+    coords_new = np.matmul(T, coords)[:-1, :]
+    result = my_interpolating_function((coords_new[0, :], coords_new[1, :], coords_new[2, :]))
+
+    return result.reshape(vol_ref.shape)
 
 
 def get_ras_axes(aff, n_dims=3):
@@ -1189,7 +1234,7 @@ def blur_images_in_dir(image_dir, result_dir, sigma, mask_dir=None, gpu=False, r
         # load image
         path_result = os.path.join(result_dir, os.path.basename(path_image))
         if (not os.path.isfile(path_result)) | recompute:
-            im, im_shape, aff, n_dims, _, h, image_res = utils.get_volume_info(path_image, return_volume=True)
+            im, im_shape, aff, n_dims, _, h, _ = utils.get_volume_info(path_image, return_volume=True)
             if path_mask is not None:
                 mask = utils.load_volume(path_mask)
                 assert mask.shape == im.shape, 'mask and image should have the same shape'
@@ -1403,7 +1448,7 @@ def samseg_images_in_dir(image_dir,
         if (not os.path.isfile(path_result)) | recompute:
             cmd = utils.mkcmd(path_samseg, '-i', path_image, '-o', path_im_result_dir, '--threads', threads)
             if atlas_dir is not None:
-                cmd = utils.mkcmd(cmd, '--a', atlas_dir)
+                cmd = utils.mkcmd(cmd, '-a', atlas_dir)
             os.system(cmd)
 
         # move segmentation to result_dir if necessary
@@ -1581,7 +1626,6 @@ def upsample_anisotropic_images(image_dir,
 
         # upsample image
         _, _, n_dims, _, _, image_res = utils.get_volume_info(path_image, return_volume=False)
-        image_res = np.array(image_res)
         path_im_upsampled = os.path.join(resample_image_result_dir, os.path.basename(path_image))
         if (not os.path.isfile(path_im_upsampled)) | recompute:
             cmd = utils.mkcmd(mri_convert, path_image, path_im_upsampled, '-rl', path_ref, '-odt float')
@@ -1771,8 +1815,8 @@ def check_images_in_dir(image_dir, check_values=False, keep_unique=True):
             list_shape.append(im_shape)
         if (aff not in list_aff) | (not keep_unique):
             list_aff.append(aff)
-        if (data_res not in list_res) | (not keep_unique):
-            list_res.append(data_res)
+        if (data_res.tolist() not in list_res) | (not keep_unique):
+            list_res.append(data_res.tolist())
         if list_unique_values is not None:
             uni = np.unique(im).tolist()
             if (uni not in list_unique_values) | (not keep_unique):
