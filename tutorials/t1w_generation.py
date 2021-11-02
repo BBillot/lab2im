@@ -1,10 +1,27 @@
-# This tutorials generates 5 synthetic *T1-weighted* brain MRI scans from a label map.
-# Specifically, it explains how to impose prior distributions on the GMM parameters, so that we can can generate images
-# of desired intensity distribution.
-# By default the GMM parameters (means and standard deviations of each Gaussian), are sampled from uniform distributions
-# of wide predefined ranges, thus yielding output images of random contrast.
-# Here we show how to generate images of desired contrast by imposing the prior distributions from which we sample the
-# means and standard deviations of the GMM.
+"""
+This tutorials generates 5 synthetic *T1-weighted* brain MRI scans from a label map.
+Specifically, it explains how to impose prior distributions on the GMM parameters, so that we can can generate images
+of desired intensity distribution.
+By default the GMM parameters (means and standard deviations of each Gaussian), are sampled from uniform distributions
+of wide predefined ranges, thus yielding output images of random contrast.
+Here we show how to generate images of desired contrast by imposing the prior distributions from which we sample the
+means and standard deviations of the GMM.
+
+
+If you use this code, please cite the first SynthSeg paper:
+https://github.com/BBillot/lab2im/blob/master/bibtex.bib
+
+Copyright 2020 Benjamin Billot
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+compliance with the License. You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is
+distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied. See the License for the specific language governing permissions and limitations under the
+License.
+"""
+
 
 import os
 import time

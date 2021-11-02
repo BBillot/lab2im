@@ -1,9 +1,26 @@
-# This script shows a usecase of the ImageGenerator wrapper around the lab2im_model.
-# It generates 5 synthetic brain MRI scans of random contrast from an input label map.
-# In this example, the parameters of the GMM (means and variances) are randomly sampled from uniform prior distributions
-# of default ranges. We sample the GMM parameters for each new image, so they all have different contrasts.
-# Importantly, this example shows how to group labels into classes, so that they are associated with the same Gaussian
-# during the image generation.
+"""
+This script shows a usecase of the ImageGenerator wrapper around the lab2im_model.
+It generates 5 synthetic brain MRI scans of random contrast from an input label map.
+In this example, the parameters of the GMM (means and variances) are randomly sampled from uniform prior distributions
+of default ranges. We sample the GMM parameters for each new image, so they all have different contrasts.
+Importantly, this example shows how to group labels into classes, so that they are associated with the same Gaussian
+during the image generation.
+
+
+If you use this code, please cite the first SynthSeg paper:
+https://github.com/BBillot/lab2im/blob/master/bibtex.bib
+
+Copyright 2020 Benjamin Billot
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+compliance with the License. You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software distributed under the License is
+distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied. See the License for the specific language governing permissions and limitations under the
+License.
+"""
+
 
 import os
 import time
