@@ -71,7 +71,7 @@ brain_generator = ImageGenerator(labels_dir=path_label_map,
 # create result dir
 utils.mkdir(result_dir)
 
-for n in range(n_examples):
+for n in range(1, n_examples + 1):
 
     # generate new image and corresponding labels
     start = time.time()
