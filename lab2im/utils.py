@@ -91,9 +91,9 @@ def load_volume(path_volume, im_only=True, squeeze=True, dtype=None, aff_ref=Non
     if path_volume.endswith(('.nii', '.nii.gz', '.mgz')):
         x = nib.load(path_volume)
         if squeeze:
-            volume = np.squeeze(x.get_data())
+            volume = np.squeeze(x.get_fdata())
         else:
-            volume = x.get_data()
+            volume = x.get_fdata()
         aff = x.affine
         header = x.header
     else:  # npz
@@ -144,12 +144,14 @@ def save_volume(volume, aff, header, path, res=None, dtype=None, n_dims=3):
                 aff = np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
         elif aff is None:
             aff = np.eye(4)
-        nifty = nib.Nifti1Image(volume, aff, header)
         if dtype is not None:
             if 'int' in dtype:
                 volume = np.round(volume)
             volume = volume.astype(dtype=dtype)
+            nifty = nib.Nifti1Image(volume, aff, header)
             nifty.set_data_dtype(dtype)
+        else:
+            nifty = nib.Nifti1Image(volume, aff, header)
         if res is not None:
             if n_dims is None:
                 n_dims, _ = get_dims(volume.shape)
@@ -925,7 +927,7 @@ def build_training_generator(gen, batchsize):
 
 def find_closest_number_divisible_by_m(n, m, answer_type='lower'):
     """Return the closest integer to n that is divisible by m. answer_type can either be 'closer', 'lower' (only returns
-    values lower than n), or 'higher (only returns values higher than m)."""
+    values lower than n), or 'higher' (only returns values higher than m)."""
     if n % m == 0:
         return n
     else:
